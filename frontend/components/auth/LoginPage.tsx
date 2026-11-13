@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
 
-const inputStyle = {
+const inputStyle: CSSProperties = {
   display: 'block',
   width: '100%',
   padding: '0.5rem',
@@ -14,10 +15,12 @@ const inputStyle = {
   fontSize: '1rem',
 };
 
-function extractErrorMessage(err) {
-  const message = err.response?.data?.message;
-  if (Array.isArray(message)) return message.join(', ');
-  if (typeof message === 'string' && message.length > 0) return message;
+function extractErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    const message = err.response?.data?.message;
+    if (Array.isArray(message)) return message.join(', ');
+    if (typeof message === 'string' && message.length > 0) return message;
+  }
   return 'Something went wrong. Please try again.';
 }
 
@@ -26,10 +29,10 @@ export default function LoginPage() {
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!username.trim() || !password) {
       setError('Username and password are required.');

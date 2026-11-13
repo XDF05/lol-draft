@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 /**
  * Central HTTP client for the NestJS API.
@@ -14,31 +14,42 @@ import axios from 'axios';
  * falling back to the local dev API port.
  */
 
+declare module 'axios' {
+  interface InternalAxiosRequestConfig {
+    _retry?: boolean;
+  }
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token?: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export const AUTH_STORAGE_KEYS = {
   accessToken: 'auth_token',
   refreshToken: 'refresh_token',
-};
+} as const;
 
 /** localStorage-backed token storage (browser-only, SSR-safe). */
 export const authStorage = {
-  getAccessToken() {
+  getAccessToken(): string | null {
     if (typeof window === 'undefined') return null;
     return window.localStorage.getItem(AUTH_STORAGE_KEYS.accessToken);
   },
-  getRefreshToken() {
+  getRefreshToken(): string | null {
     if (typeof window === 'undefined') return null;
     return window.localStorage.getItem(AUTH_STORAGE_KEYS.refreshToken);
   },
-  setTokens({ access_token, refresh_token }) {
+  setTokens({ access_token, refresh_token }: AuthTokens): void {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, access_token);
     if (refresh_token) {
       window.localStorage.setItem(AUTH_STORAGE_KEYS.refreshToken, refresh_token);
     }
   },
-  clear() {
+  clear(): void {
     if (typeof window === 'undefined') return;
     window.localStorage.removeItem(AUTH_STORAGE_KEYS.accessToken);
     window.localStorage.removeItem(AUTH_STORAGE_KEYS.refreshToken);
@@ -46,12 +57,17 @@ export const authStorage = {
 };
 
 // Callbacks wired by AuthProvider so interceptor reactions can update state.
-let callbacks = {
+interface AuthCallbacks {
+  onTokensRefreshed: ((tokens: AuthTokens) => void) | null;
+  onAuthFailure: (() => void) | null;
+}
+
+let callbacks: AuthCallbacks = {
   onTokensRefreshed: null,
   onAuthFailure: null,
 };
 
-export function configureAuthApi(next) {
+export function configureAuthApi(next: Partial<AuthCallbacks>): void {
   callbacks = { ...callbacks, ...next };
 }
 
@@ -68,22 +84,25 @@ api.interceptors.request.use((config) => {
 
 const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh'];
 
-function isAuthEndpoint(url) {
-  return AUTH_ENDPOINTS.some((path) => (url || '').includes(path));
+function isAuthEndpoint(url: string | undefined): boolean {
+  return AUTH_ENDPOINTS.some((path) => (url ?? '').includes(path));
 }
 
 // Single-flight refresh: one /auth/refresh call per expired access token.
-let refreshInFlight = null;
+let refreshInFlight: Promise<AuthTokens> | null = null;
 
-function rotateRefreshToken() {
+function rotateRefreshToken(): Promise<AuthTokens> {
   if (!refreshInFlight) {
     const refreshToken = authStorage.getRefreshToken();
     refreshInFlight = axios
-      .post(`${API_URL}/auth/refresh`, { refresh_token: refreshToken })
+      .post<AuthTokens>(`${API_URL}/auth/refresh`, {
+        refresh_token: refreshToken,
+      })
       .then((res) => {
-        authStorage.setTokens(res.data);
-        if (callbacks.onTokensRefreshed) callbacks.onTokensRefreshed(res.data);
-        return res.data;
+        const tokens = res.data;
+        authStorage.setTokens(tokens);
+        if (callbacks.onTokensRefreshed) callbacks.onTokensRefreshed(tokens);
+        return tokens;
       })
       .finally(() => {
         refreshInFlight = null;
@@ -92,17 +111,17 @@ function rotateRefreshToken() {
   return refreshInFlight;
 }
 
-function handleAuthFailure() {
+function handleAuthFailure(): void {
   authStorage.clear();
   if (callbacks.onAuthFailure) callbacks.onAuthFailure();
 }
 
 // --- Response interceptor: auto-refresh on 401, then retry once. ---
 api.interceptors.response.use(
-  null,
-  async (error) => {
+  undefined,
+  async (error: AxiosError) => {
     const original = error.config;
-    const status = error.response ? error.response.status : undefined;
+    const status = error.response?.status;
 
     if (
       status === 401 &&
@@ -119,14 +138,14 @@ api.interceptors.response.use(
           return api.request(original);
         } catch (refreshError) {
           handleAuthFailure();
-          return Promise.reject(refreshError);
+          throw refreshError;
         }
       }
 
       handleAuthFailure();
     }
 
-    return Promise.reject(error);
+    throw error;
   },
 );
 

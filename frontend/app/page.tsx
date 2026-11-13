@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { useAuth } from '../hooks/useAuth';
 
-const mainStyle = { padding: '2rem', textAlign: 'center' };
+const mainStyle: CSSProperties = { padding: '2rem', textAlign: 'center' };
 
 export default function HomePage() {
   const { status, user, logout } = useAuth();
@@ -17,7 +18,7 @@ export default function HomePage() {
     );
   }
 
-  if (status === 'authenticated') {
+  if (status === 'authenticated' && user) {
     return (
       <main style={mainStyle}>
         <h1>LoL Draft Strategy Board</h1>

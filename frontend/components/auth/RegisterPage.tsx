@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type CSSProperties, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { isAxiosError } from 'axios';
 import api from '../../lib/api';
 import { useAuth } from '../../hooks/useAuth';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const inputStyle = {
+const inputStyle: CSSProperties = {
   display: 'block',
   width: '100%',
   padding: '0.5rem',
@@ -18,10 +19,12 @@ const inputStyle = {
   fontSize: '1rem',
 };
 
-function extractErrorMessage(err) {
-  const message = err.response?.data?.message;
-  if (Array.isArray(message)) return message.join(', ');
-  if (typeof message === 'string' && message.length > 0) return message;
+function extractErrorMessage(err: unknown): string {
+  if (isAxiosError(err)) {
+    const message = err.response?.data?.message;
+    if (Array.isArray(message)) return message.join(', ');
+    if (typeof message === 'string' && message.length > 0) return message;
+  }
   return 'Something went wrong. Please try again.';
 }
 
@@ -32,10 +35,10 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  function validate() {
+  function validate(): string | null {
     if (
       username.length < 3 ||
       username.length > 32 ||
@@ -55,7 +58,7 @@ export default function RegisterPage() {
     return null;
   }
 
-  async function handleSubmit(event) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const validationError = validate();
     if (validationError) {

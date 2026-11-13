@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
  * being validated on first load it shows a loading state; unauthenticated
  * users are redirected to /login with their intended path as ?next=.
  */
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children }: { children: ReactNode }) {
   const { status } = useAuth();
   const router = useRouter();
   const pathname = usePathname();

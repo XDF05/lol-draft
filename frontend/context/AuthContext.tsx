@@ -6,8 +6,30 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ReactNode,
 } from 'react';
-import api, { authStorage, configureAuthApi } from '../lib/api';
+import api, { authStorage, configureAuthApi, type AuthTokens } from '../lib/api';
+
+export interface AuthUser {
+  id: number;
+  username: string;
+  email?: string;
+}
+
+export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
+
+export interface LoginCredentials {
+  username: string;
+  password: string;
+}
+
+export interface AuthContextValue {
+  user: AuthUser | null;
+  status: AuthStatus;
+  isAuthenticated: boolean;
+  login: (credentials: LoginCredentials) => Promise<AuthUser>;
+  logout: () => void;
+}
 
 /**
  * Global authentication state for the app.
@@ -16,14 +38,14 @@ import api, { authStorage, configureAuthApi } from '../lib/api';
  *   - 'loading': initial page load while stored tokens are validated.
  *
  * Mounted once in the root layout; token storage lives in localStorage
- * (see lib/api.js) so a hard refresh restores the session via GET /auth/me,
+ * (see lib/api.ts) so a hard refresh restores the session via GET /auth/me,
  * transparently rotating the refresh token if the access token expired.
  */
-export const AuthContext = createContext(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [status, setStatus] = useState('loading');
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [status, setStatus] = useState<AuthStatus>('loading');
 
   // React to interceptor-driven auth changes (auto-refresh / hard failure).
   useEffect(() => {
@@ -44,7 +66,7 @@ export function AuthProvider({ children }) {
         return;
       }
       try {
-        const res = await api.get('/auth/me');
+        const res = await api.get<AuthUser>('/auth/me');
         if (!cancelled) {
           setUser(res.data);
           setStatus('authenticated');
@@ -62,10 +84,10 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
-  const login = useCallback(async ({ username, password }) => {
-    const res = await api.post('/auth/login', { username, password });
+  const login = useCallback(async (credentials: LoginCredentials) => {
+    const res = await api.post<AuthTokens>('/auth/login', credentials);
     authStorage.setTokens(res.data);
-    const me = await api.get('/auth/me');
+    const me = await api.get<AuthUser>('/auth/me');
     setUser(me.data);
     setStatus('authenticated');
     return me.data;
@@ -77,7 +99,7 @@ export function AuthProvider({ children }) {
     setStatus('unauthenticated');
   }, []);
 
-  const value = useMemo(
+  const value = useMemo<AuthContextValue>(
     () => ({
       user,
       status,
