@@ -62,12 +62,15 @@ A real-time multiplayer draft simulator built on microservices architecture with
                     ┌──────────────────────────────────────────────────┐  │
                     │                EXTERNAL DEPENDENCIES             │  │
                     ├──────────────────────────────────────────────────┤  │
-                    │  Riot Games API                                   │  │
-                    │  • GET /lol/champion/v4/datastore/               │  │
-                    │    → Returns champion names, icons, pool IDs      │  │
-                    │                                                   │  │
+                    │  Riot Data Dragon CDN (public, no key)           │  │
+                    │  • GET /api/versions.json → latest patch         │  │
+                    │  • GET /cdn/<patch>/data/en_US/champion.json     │  │
+                    │    → champion ids, names + icon URLs             │  │
+                    │  • Icons: /cdn/<patch>/img/champion/<id>.png     │  │
+                    │                                                  │  │
                     │  Redis Cache Strategy:                           │  │
-                    │  • Champion data TTL: 24h                        │  │
+                    │  • Champion data: no TTL (version-pinned)        │  │
+                    │  • Latest patch check TTL: 1h                    │  │
                     │  • Session tokens TTL: 15 min                    │  │
                     │  • Rate limit counters TTL: 5 min                │  │
                     └──────────────────────────────────────────────────┘  │
@@ -419,7 +422,7 @@ model Draft {
 model Ban {
   id          Int   @id @default(autoincrement())
   draftId     Int
-  championId  String // Map to champion.id from Riot API
+  championId  String // Map to champion.id from Data Dragon
   
   draft       Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
   

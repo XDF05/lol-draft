@@ -152,22 +152,23 @@ useEffect(() => localStorage.setItem('auth_token', token), []);
 **Deliverable**: Champion data fetching with Redis cache
 
 **Tasks**:
-- [ ] Create RiotApiService in NestJS
-- [ ] Implement GET /lol/champion/v4/datastore endpoint
-- [ ] Fetch champion names and icon URLs for all champions
-- [ ] Add Redis caching layer (TTL: 24 hours)
-- [ ] Implement fallback retry with exponential backoff
-- [ ] Create Champion data interface in TypeScript
-- [ ] Add error handling for API failures
-- [ ] Store champion pool in frontend store
+- [x] Create RiotApiService in NestJS
+- [x] Fetch champion data from Data Dragon CDN (versions.json + champion.json)
+- [x] Fetch champion names and icon URLs for all champions
+- [x] Add Redis caching layer (version-pinned, no TTL — kept while the latest patch is unchanged)
+- [x] Implement fallback retry with exponential backoff
+- [x] Create Champion data interface in TypeScript
+- [x] Add error handling for API failures
+- [x] Store champion pool in frontend store
 
 **Acceptance Criteria**:
 ```typescript
-// First request - hits Riot API
+// First request - fetches latest patch + champion data from Data Dragon CDN
 const champions = await riotApiService.getChampions();
-// Response: { count: 140, data: [...] }
+// Response: { count: 140+, data: [...] }
 
-// Subsequent requests - cache hit
+// Subsequent requests - cache hit (no external call) while the latest
+// Data Dragon patch is unchanged
 const cached = await redisService.get('champions:data');
 // Returns same response without external call
 ```

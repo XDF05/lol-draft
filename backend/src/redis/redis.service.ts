@@ -7,7 +7,7 @@ import Redis from 'ioredis';
  * Used for:
  * - Refresh token storage (auth sessions) with TTL
  * - Rate limit counters
- * - Champion data caching (TTL: 24h) — added in T-005
+ * - Champion data caching (version-pinned, no TTL) — added in T-005
  */
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {

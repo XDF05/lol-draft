@@ -6,6 +6,7 @@ frontend/.next/
 frontend/out/
 backend/dist/
 backend/*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
 
 # Environment files (committed .env.example files are kept)
 .env

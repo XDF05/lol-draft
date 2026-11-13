@@ -3,9 +3,10 @@ import { HealthController } from './health.controller';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
+import { ChampionsModule } from './champions/champions.module';
 
 @Module({
-  imports: [PrismaModule, RedisModule, AuthModule],
+  imports: [PrismaModule, RedisModule, AuthModule, ChampionsModule],
   controllers: [HealthController],
 })
 export class AppModule {}

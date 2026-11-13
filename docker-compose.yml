@@ -30,6 +30,7 @@ services:
       - REDIS_PORT=6379
       - PORT=4000
       - JWT_SECRET=${JWT_SECRET}
+      - DATA_DRAGON_BASE_URL=${DATA_DRAGON_BASE_URL:-}
     depends_on:
       db:
         condition: service_healthy

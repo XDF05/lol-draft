@@ -90,7 +90,7 @@ Finalization: 1 turn (60s grace period for swaps)
 ### Backend
 - **Framework**: NestJS 10 with TypeScript
 - **Database**: PostgreSQL 15 (Prisma ORM)
-- **Cache**: Redis 7 for session state and Riot API data
+- **Cache**: Redis 7 for session state and Data Dragon champion data
 - **Real-time**: Socket.IO server
 - **Security**: JWT validation, rate limiting, CORS restrictions
 

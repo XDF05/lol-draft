@@ -139,7 +139,7 @@ The draft system orchestrates the complete champion selection and banning proces
 - Champions marked as banned appear crossed-out or grayed
 - Champions marked as picked are unavailable to both players
 - Real-time pool updates after each action
-- Total champion count: 140+ (all Riot API champions)
+- Total champion count: 140+ (all Data Dragon champions)
 
 ### R-012: Lock Persistence
 **ID**: DS-FR-012  
@@ -322,10 +322,10 @@ graph TD
 - Replay queued actions when connection restored
 - Server validates and reconciles on reconnection
 
-### EC-003: Riot API Unavailability
-**Scenario**: Riot Games Developer Portal API is down  
+### EC-003: Data Dragon CDN Unavailability
+**Scenario**: Riot's Data Dragon CDN is unreachable  
 **Handling**:
-- Redis cache serves champions data (TTL: 24h)
+- Redis cache serves champion names/icons (kept while the latest Data Dragon patch is unchanged)
 - Fallback retry with exponential backoff
 - Display "Champion pool unavailable" error if all retries fail
 
@@ -374,4 +374,4 @@ graph TD
 
 - Design Document: `design.md`
 - Task Breakdown: `tasks.md`
-- API Specifications: Riot Games v4 Datastore documentation
+- API Specifications: Riot Data Dragon CDN (ddragon.leagueoflegends.com)
