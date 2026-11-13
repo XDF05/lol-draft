@@ -1,5 +1,14 @@
 schema: spec-driven
 
+context: |
+  Git workflow:
+  - Use Conventional Commits (type(scope): subject, imperative, <=72 chars).
+  - Commit after the proposal/spec is written, then once per completed task
+    group in tasks.md during apply.
+  - After `openspec archive <change-id>`, commit the archive result
+    separately, e.g. "chore(openspec): archive <change-id>".
+  - Never commit unrelated working-tree changes.
+
 # Project context (optional)
 # Add only constraints that should guide OpenSpec artifacts and workflows.
 # Include constraints an agent cannot infer by reading the code.
