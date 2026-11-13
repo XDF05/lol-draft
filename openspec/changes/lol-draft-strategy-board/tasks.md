@@ -76,14 +76,14 @@ $ npx prisma studio
 **Deliverable**: JWT-based authentication in NestJS
 
 **Tasks**:
-- [ ] Install dependencies (bcryptjs, jsonwebtoken, class-validator)
-- [ ] Create AuthModule with module definition
-- [ ] Implement UserEntity and DTOs
-- [ ] Create LoginController with password validation
-- [ ] Create AuthService for token generation/validation
-- [ ] Add JwtAuthGuard middleware
-- [ ] Configure Redis for session storage
-- [ ] Implement refresh token rotation
+- [x] Install dependencies (bcryptjs, jsonwebtoken, class-validator)
+- [x] Create AuthModule with module definition
+- [x] Implement UserEntity and DTOs
+- [x] Create LoginController with password validation
+- [x] Create AuthService for token generation/validation
+- [x] Add JwtAuthGuard middleware
+- [x] Configure Redis for session storage
+- [x] Implement refresh token rotation
 
 **Acceptance Criteria**:
 ```bash
