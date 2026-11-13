@@ -7,6 +7,7 @@ frontend/out/
 backend/dist/
 backend/*.tsbuildinfo
 frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts
 
 # Environment files (committed .env.example files are kept)
 .env
@@ -19,6 +20,7 @@ npm-debug.log*
 
 # Agent harness configuration (not project code)
 .agents/
+frontend/AGENTS.md
 
 # IDE exclusions
 .vscode/
