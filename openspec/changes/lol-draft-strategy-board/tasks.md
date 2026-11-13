@@ -16,13 +16,13 @@ This document outlines the implementation tasks for the League of Legends Draft 
 **Deliverable**: Repository with Docker configuration
 
 **Tasks**:
-- [ ] Initialize Git repository structure
-- [ ] Set up project directories (frontend/, backend/, docker/)
-- [ ] Create Dockerfile for Next.js frontend
-- [ ] Create Dockerfile for NestJS backend
-- [ ] Configure docker-compose.yml with all services
-- [ ] Set up .env.example files for environment variables
-- [ ] Add .gitignore with IDE exclusions
+- [x] Initialize Git repository structure
+- [x] Set up project directories (frontend/, backend/, docker/)
+- [x] Create Dockerfile for Next.js frontend
+- [x] Create Dockerfile for NestJS backend
+- [x] Configure docker-compose.yml with all services
+- [x] Set up .env.example files for environment variables
+- [x] Add .gitignore with IDE exclusions
 
 **Acceptance Criteria**:
 ```bash
