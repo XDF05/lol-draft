@@ -1,0 +1,98 @@
+// schema.prisma — League of Legends Draft Strategy Board
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+
+  createdAt DateTime @default(now())
+
+  blueTeamDrafts Draft[]         @relation("BlueTeam")
+  redTeamDrafts  Draft[]         @relation("RedTeam")
+  sessions       SessionToken[]
+}
+
+model Draft {
+  id Int @id @default(autoincrement())
+  code String @unique
+
+  // Nullable: a draft is persisted as WAITING_FOR_PLAYERS before the second player joins.
+  blueTeamPlayerId Int?
+  redTeamPlayerId  Int?
+  blueTeamPlayer   User?  @relation("BlueTeam", fields: [blueTeamPlayerId], references: [id])
+  redTeamPlayer    User?  @relation("RedTeam", fields: [redTeamPlayerId], references: [id])
+
+  fearlessMode Boolean @default(false)
+  status       String // WAITING_FOR_PLAYERS | IN_PROGRESS | COMPLETE | EXPIRED
+
+  currentTurn Int @default(1)
+  maxTurns    Int @default(21) // Fixed at 21 (final action turn is 20)
+
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  bans  Ban[]
+  picks Pick[]
+
+  @@index([status])
+}
+
+model Ban {
+  id         Int    @id @default(autoincrement())
+  draftId    Int
+  championId String // Map to champion.id from Riot API
+  phase      Int    @default(1) // 1 = first ban phase, 2 = second ban phase
+
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  playerId Int
+  team     String // BLUE | RED
+
+  locked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([draftId, championId, team])
+  @@index([draftId, team])
+}
+
+model Pick {
+  id         Int    @id @default(autoincrement())
+  draftId    Int
+  championId String
+
+  draft Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  playerId Int
+  team     String // BLUE | RED
+
+  locked Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@unique([draftId, championId, team])
+  @@index([draftId, team])
+}
+
+model SessionToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

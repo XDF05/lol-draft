@@ -49,13 +49,13 @@ docker-compose logs api  # Should show database connection
 **Deliverable**: Prisma schema with all required models
 
 **Tasks**:
-- [ ] Create Prisma schema file (schema.prisma)
-- [ ] Define User model with authentication fields
-- [ ] Define Draft model with turn tracking
-- [ ] Define Ban and Pick models with proper foreign keys
-- [ ] Add indexes for performance optimization
-- [ ] Create migration files for PostgreSQL
-- [ ] Initialize Prisma Client in backend
+- [x] Create Prisma schema file (schema.prisma)
+- [x] Define User model with authentication fields
+- [x] Define Draft model with turn tracking
+- [x] Define Ban and Pick models with proper foreign keys
+- [x] Add indexes for performance optimization
+- [x] Create migration files for PostgreSQL
+- [x] Initialize Prisma Client in backend
 
 **Acceptance Criteria**:
 ```bash
