@@ -188,16 +188,16 @@ const cached = await redisService.get('champions:data');
 **Deliverable**: Real-time event broadcasting infrastructure
 
 **Tasks**:
-- [ ] Install Socket.IO for NestJS (@nestjs/websockets)
-- [ ] Create DraftEventsModule with socket configuration
-- [ ] Implement SocketGateway with @MessagePattern decorators
-- [ ] Add room management (join/leave broadcast rooms)
-- [ ] Define server-side event handlers:
-  - ban.select, ban.lock, ban.skip
-  - pick.select, pick.lock, pick.skip
-  - swap.request, swap.approve, swap.reject
-- [ ] Implement event validation middleware
-- [ ] Add connection health monitoring
+- [x] Install Socket.IO for NestJS (@nestjs/websockets)
+- [x] Create DraftEventsModule with socket configuration
+- [x] Implement SocketGateway with @MessagePattern decorators
+- [x] Add room management (join/leave broadcast rooms)
+- [x] Define server-side event handlers:
+  - [x] ban.select, ban.lock, ban.skip
+  - [x] pick.select, pick.lock, pick.skip
+  - [x] swap.request, swap.approve, swap.reject
+- [x] Implement event validation middleware
+- [x] Add connection health monitoring
 
 **Acceptance Criteria**:
 ```typescript
