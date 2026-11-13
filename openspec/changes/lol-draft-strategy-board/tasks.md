@@ -115,14 +115,14 @@ $ curl -X POST http://localhost:4000/auth/login \
 **Deliverable**: React authentication UI with Next.js
 
 **Tasks**:
-- [ ] Install dependencies (react-router-dom, axios)
-- [ ] Create LoginPage component with form validation
-- [ ] Create RegisterPage component
-- [ ] Implement useAuth hook for JWT management
-- [ ] Add protected route wrapper components
-- [ ] Configure HTTP interceptor to attach JWT
-- [ ] Handle token refresh automatically
-- [ ] Create AuthContext for global state
+- [x] Install dependencies (react-router-dom, axios)
+- [x] Create LoginPage component with form validation
+- [x] Create RegisterPage component
+- [x] Implement useAuth hook for JWT management
+- [x] Add protected route wrapper components
+- [x] Configure HTTP interceptor to attach JWT
+- [x] Handle token refresh automatically
+- [x] Create AuthContext for global state
 
 **Acceptance Criteria**:
 ```typescript
