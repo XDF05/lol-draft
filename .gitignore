@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/.next/
+frontend/out/
+backend/dist/
+backend/*.tsbuildinfo
+
+# Environment files (committed .env.example files are kept)
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Agent harness configuration (not project code)
+.agents/
+
+# IDE exclusions
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
