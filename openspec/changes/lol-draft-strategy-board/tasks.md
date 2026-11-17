@@ -231,17 +231,17 @@ async handleDraftJoin(
 **Deliverable**: Real-time client for Next.js
 
 **Tasks**:
-- [ ] Install Socket.IO client in frontend
-- [ ] Create useSocket custom hook
-- [ ] Implement event listeners:
-  - turn.start, turn.end
-  - ban.confirmed, pick.confirmed
-  - timer.warning, timer.expired
-  - phase.ban1.start, etc.
-- [ ] Add connection state indicator UI
-- [ ] Implement automatic reconnection logic
-- [ ] Handle disconnection gracefully (state preservation)
-- [ ] Create socket event types definition
+- [x] Install Socket.IO client in frontend
+- [x] Create useSocket custom hook
+- [x] Implement event listeners:
+  - [x] turn.start, turn.end
+  - [x] ban.confirmed, pick.confirmed
+  - [x] timer.warning, timer.expired
+  - [x] phase.ban1.start, etc.
+- [x] Add connection state indicator UI
+- [x] Implement automatic reconnection logic
+- [x] Handle disconnection gracefully (state preservation)
+- [x] Create socket event types definition
 
 **Acceptance Criteria**:
 ```typescript

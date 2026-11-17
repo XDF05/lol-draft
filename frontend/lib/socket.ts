@@ -1,0 +1,301 @@
+import { io, Socket } from 'socket.io-client';
+import { authStorage } from './api';
+
+/**
+ * Socket.IO client for the draft events gateway (T-007).
+ *
+ * Event and payload types mirror the server-side contract in
+ * backend/src/draft-events/socket-events.ts — keep them in sync, the same
+ * way lib/types.ts mirrors the champion entity.
+ *
+ * Handler failures (WsException / DTO validation) do NOT arrive through the
+ * emit acknowledgement; the gateway emits them on the `exception` event as
+ * `{ status: 'error', message }`. Acks therefore resolve only for successful
+ * handler returns, and `socket.timeout(...)` fires on failures after the
+ * timeout — see emitAck() and the store's `lastError`.
+ */
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+// ---------------------------------------------------------------------------
+// Mirrored contract types (backend/src/draft-events/socket-events.ts)
+// ---------------------------------------------------------------------------
+
+export type Team = 'BLUE' | 'RED';
+
+export type DraftPhase =
+  | 'BANNING_P1'
+  | 'PICKING_P1'
+  | 'BANNING_P2'
+  | 'PICKING_P2'
+  | 'FINALIZATION';
+
+/** Turn snapshot broadcast on `turn.start` (also used by timer events). */
+export interface TurnStartPayload {
+  turnNumber: number;
+  phase: DraftPhase;
+  actionType: 'BAN' | 'PICK' | 'FINALIZATION';
+  expectedTeam: Team | null;
+  timerSeconds: number;
+}
+
+export interface BanConfirmedEntry {
+  championId: string;
+  team: Team;
+  phase: 1 | 2;
+  locked: boolean;
+}
+
+export interface PickConfirmedEntry {
+  championId: string;
+  team: Team;
+  locked: boolean;
+}
+
+export interface PendingSelection {
+  type: 'BAN' | 'PICK';
+  championId: string | null;
+}
+
+export interface SwapRequestEntry {
+  id: string;
+  requestedBy: number;
+  requesterTeam: Team;
+  offerChampionId: string;
+  targetChampionId: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export interface BanConfirmedPayload {
+  championId: string;
+  team: Team;
+  phase: 1 | 2;
+  bans: BanConfirmedEntry[];
+}
+
+export interface PickConfirmedPayload {
+  championId: string;
+  team: Team;
+  picks: PickConfirmedEntry[];
+}
+
+export interface SwapResolvedPayload {
+  request: SwapRequestEntry;
+  approved: boolean;
+}
+
+/**
+ * Full live-session snapshot broadcast on `draft.update`
+ * (mirrors backend DraftSessionState).
+ */
+export interface DraftSessionSnapshot {
+  draftId: number;
+  code: string;
+  status: string;
+  fearlessMode: boolean;
+  currentTurn: number;
+  bans: BanConfirmedEntry[];
+  picks: PickConfirmedEntry[];
+  pending: Partial<Record<Team, PendingSelection | null>>;
+  skips: Record<Team, number>;
+  swapRequests: SwapRequestEntry[];
+  updatedAt: string;
+}
+
+/** Emitted by TurnManager (T-011); wired client-side already. */
+export interface TimerWarningPayload {
+  seconds: number;
+  turn: TurnStartPayload;
+}
+
+/** Emitted by TurnManager (T-011); wired client-side already. */
+export interface TimerExpiredPayload {
+  autoLockedChampionId: string | null;
+}
+
+/** Gateway failures (WsException / ValidationPipe). */
+export interface ExceptionPayload {
+  status: string;
+  message: string;
+}
+
+// ---------------------------------------------------------------------------
+// Event maps
+// ---------------------------------------------------------------------------
+
+export interface ServerToClientEvents {
+  'draft.update': (state: DraftSessionSnapshot) => void;
+  'turn.start': (turn: TurnStartPayload) => void;
+  'turn.end': (nextTurnNumber: number) => void;
+  'ban.confirmed': (payload: BanConfirmedPayload) => void;
+  'pick.confirmed': (payload: PickConfirmedPayload) => void;
+  'timer.warning': (payload: TimerWarningPayload) => void;
+  'timer.expired': (payload: TimerExpiredPayload) => void;
+  'phase.ban1.start': () => void;
+  'phase.pick1.start': () => void;
+  'phase.ban2.start': () => void;
+  'phase.pick2.start': () => void;
+  'phase.finalization.start': () => void;
+  'swap.requested': (request: SwapRequestEntry) => void;
+  'swap.resolved': (payload: SwapResolvedPayload) => void;
+  'auth.error': (payload: { message: string }) => void;
+  exception: (payload: ExceptionPayload) => void;
+}
+
+// Ack payload types (successful handler returns).
+export interface DraftJoinAck {
+  ok: true;
+  draftId: number;
+  team: Team;
+  room: string;
+}
+export interface ChampionSelectAck {
+  ok: true;
+  championId: string | null;
+}
+export interface ChampionLockAck {
+  ok: true;
+  championId: string;
+}
+export interface SimpleAck {
+  ok: true;
+}
+export interface SwapRequestAck {
+  ok: true;
+  request: SwapRequestEntry;
+}
+export interface SwapDecisionAck {
+  ok: true;
+  request: SwapRequestEntry;
+  approved: boolean;
+}
+export interface HealthPingAck {
+  ok: true;
+  serverTime: number;
+  latencyMs: number | null;
+}
+
+export interface ClientToServerEvents {
+  'draft.join': (
+    payload: { code: string; team?: Team },
+    ack: (res: DraftJoinAck) => void,
+  ) => void;
+  'draft.leave': (ack: (res: SimpleAck) => void) => void;
+  'ban.select': (
+    payload: { championId?: string | null },
+    ack: (res: ChampionSelectAck) => void,
+  ) => void;
+  'ban.lock': (ack: (res: ChampionLockAck) => void) => void;
+  'ban.skip': (
+    payload: Record<string, never>,
+    ack: (res: SimpleAck) => void,
+  ) => void;
+  'pick.select': (
+    payload: { championId?: string | null },
+    ack: (res: ChampionSelectAck) => void,
+  ) => void;
+  'pick.lock': (ack: (res: ChampionLockAck) => void) => void;
+  'pick.skip': (
+    payload: Record<string, never>,
+    ack: (res: SimpleAck) => void,
+  ) => void;
+  'swap.request': (
+    payload: { targetChampionId: string; proposedSwapWith: string },
+    ack: (res: SwapRequestAck) => void,
+  ) => void;
+  'swap.approve': (
+    payload: { requestId: string },
+    ack: (res: SwapDecisionAck) => void,
+  ) => void;
+  'swap.reject': (
+    payload: { requestId: string },
+    ack: (res: SwapDecisionAck) => void,
+  ) => void;
+  'health.ping': (
+    payload: { sentAt?: number },
+    ack: (res: HealthPingAck) => void,
+  ) => void;
+}
+
+export type DraftSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+// ---------------------------------------------------------------------------
+// Connection factory (module-level singleton, one socket per browser tab)
+// ---------------------------------------------------------------------------
+
+let draftSocket: DraftSocket | null = null;
+
+/**
+ * Lazily create (or return) the app's draft socket. Not connected
+ * automatically — `useSocket` / `joinDraft` call `connect()`.
+ *
+ * `auth` is a function so every (re)connection attempt reads the *current*
+ * access token from storage: if the HTTP layer rotated tokens while the
+ * socket was offline, the next handshake uses the fresh JWT.
+ */
+export function getDraftSocket(): DraftSocket {
+  if (!draftSocket) {
+    draftSocket = io(API_URL, {
+      transports: ['websocket'],
+      autoConnect: false,
+      // Automatic reconnection (R-013): socket.io retries with exponential
+      // backoff between 1s and 5s until it succeeds.
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      auth: (cb) => cb({ token: authStorage.getAccessToken() }),
+    });
+  }
+  return draftSocket;
+}
+
+/** Close and discard the socket (e.g. on logout). A new one is built lazily. */
+export function closeDraftSocket(): void {
+  if (draftSocket) {
+    draftSocket.disconnect();
+    draftSocket = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Acknowledgement helper
+// ---------------------------------------------------------------------------
+
+export interface AckOutcome<T = unknown> {
+  ok: boolean;
+  data?: T;
+  /** Set on timeout (server-side failures arrive via the `exception` event). */
+  error?: string;
+}
+
+/**
+ * Emit with acknowledgement and a timeout. Resolves `{ ok: false }` on
+ * timeout; the concrete failure message is delivered on the `exception`
+ * event and surfaced through the draft store's `lastError`.
+ */
+export function emitAck<A>(
+  socket: DraftSocket,
+  event: keyof ClientToServerEvents,
+  payload: unknown,
+  timeoutMs = 4000,
+): Promise<AckOutcome<A>> {
+  return new Promise((resolve) => {
+    const timeoutEmit = socket
+      .timeout(timeoutMs)
+      .emit.bind(socket) as unknown as (
+      eventName: string,
+      payloadArg: unknown,
+      ack: (err: Error | null, res: A) => void,
+    ) => void;
+
+    timeoutEmit(event, payload, (err, res) => {
+      if (err) {
+        resolve({ ok: false, error: 'Request timed out' });
+      } else {
+        resolve({ ok: true, data: res });
+      }
+    });
+  });
+}
