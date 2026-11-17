@@ -61,6 +61,10 @@ export function attachDraftEventListeners(socket: DraftSocket): () => void {
       (p) => store().applyTimerExpired(p as never),
     ],
     [
+      'draft.expired',
+      (p) => store().applyDraftExpired(p as never),
+    ],
+    [
       'auth.error',
       (p) => {
         const { message } = p as { message?: string };

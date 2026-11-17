@@ -271,15 +271,15 @@ const useDraftEvents = () => {
 **Deliverable**: New draft creation UI and backend
 
 **Tasks**:
-- [ ] Create DraftCreationController in NestJS
-- [ ] Implement POST /draft/create endpoint
-- [ ] Generate unique 7-character draft code
-- [ ] Persist draft to PostgreSQL with WAITING_FOR_PLAYERS status
-- [ ] Create DraftCreationPage in Next.js
-- [ ] Build side selection UI (Blue/Red)
-- [ ] Handle player arrival tracking
-- [ ] Display "Waiting for opponent" message
-- [ ] Add 30-second reconnection grace period logic
+- [x] Create DraftCreationController in NestJS
+- [x] Implement POST /draft/create endpoint
+- [x] Generate unique 7-character draft code
+- [x] Persist draft to PostgreSQL with WAITING_FOR_PLAYERS status
+- [x] Create DraftCreationPage in Next.js
+- [x] Build side selection UI (Blue/Red)
+- [x] Handle player arrival tracking
+- [x] Display "Waiting for opponent" message
+- [x] Add 30-second reconnection grace period logic
 
 **Acceptance Criteria**:
 ```bash

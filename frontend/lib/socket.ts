@@ -113,6 +113,11 @@ export interface TimerExpiredPayload {
   autoLockedChampionId: string | null;
 }
 
+/** Broadcast when a draft expires (R-013 reconnection grace period elapsed). */
+export interface DraftExpiredPayload {
+  reason: string;
+}
+
 /** Gateway failures (WsException / ValidationPipe). */
 export interface ExceptionPayload {
   status: string;
@@ -138,6 +143,7 @@ export interface ServerToClientEvents {
   'phase.finalization.start': () => void;
   'swap.requested': (request: SwapRequestEntry) => void;
   'swap.resolved': (payload: SwapResolvedPayload) => void;
+  'draft.expired': (payload: DraftExpiredPayload) => void;
   'auth.error': (payload: { message: string }) => void;
   exception: (payload: ExceptionPayload) => void;
 }

@@ -111,6 +111,14 @@ export interface SwapResolvedPayload {
   approved: boolean;
 }
 
+/**
+ * Broadcast when an in-progress draft expires (R-013 / EC-001): a player
+ * stayed disconnected longer than the reconnection grace period.
+ */
+export interface DraftExpiredPayload {
+  reason: string;
+}
+
 /** Room name helpers. */
 export function draftRoom(draftId: number): string {
   return `draft:${draftId}`;

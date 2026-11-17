@@ -9,6 +9,7 @@ import {
   type ChampionSelectAck,
   type DraftJoinAck,
   type DraftPhase,
+  type DraftExpiredPayload,
   type DraftSessionSnapshot,
   type HealthPingAck,
   type PendingSelection,
@@ -70,6 +71,9 @@ interface DraftStoreState {
   timerWarning: TimerWarningPayload | null;
   timerExpired: TimerExpiredPayload | null;
 
+  /** Reason string from `draft.expired` (R-013 reconnection grace expiry). */
+  draftExpired: string | null;
+
   // --- Connection (R-013) -------------------------------------------------------
   connectionState: ConnectionState;
   /** Last measured round-trip latency from health.ping, in ms. */
@@ -90,6 +94,7 @@ interface DraftStoreState {
   applyPhaseStart: (phase: DraftPhase) => void;
   applyTimerWarning: (payload: TimerWarningPayload) => void;
   applyTimerExpired: (payload: TimerExpiredPayload) => void;
+  applyDraftExpired: (payload: DraftExpiredPayload) => void;
   setConnectionState: (state: ConnectionState, message?: string) => void;
   setLatency: (latencyMs: number | null) => void;
   setLastError: (message: string | null) => void;
@@ -135,6 +140,7 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
 
   timerWarning: null,
   timerExpired: null,
+  draftExpired: null,
 
   connectionState: 'idle',
   latencyMs: null,
@@ -208,6 +214,9 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
   applyTimerWarning: (payload) => set({ timerWarning: payload }),
 
   applyTimerExpired: (payload) => set({ timerExpired: payload }),
+
+  applyDraftExpired: (payload) =>
+    set({ draftExpired: payload.reason, draftStatus: 'EXPIRED' }),
 
   setConnectionState: (connectionState, message) =>
     set((state) => ({
@@ -380,6 +389,7 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       phase: null,
       timerWarning: null,
       timerExpired: null,
+      draftExpired: null,
       lastError: null,
     }),
 }));

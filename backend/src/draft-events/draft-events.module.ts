@@ -20,6 +20,6 @@ import { WsJwtGuard } from './ws-jwt.guard';
     ConnectionHealthService,
     WsJwtGuard,
   ],
-  exports: [DraftSessionService, ConnectionHealthService],
+  exports: [DraftSessionService, ConnectionHealthService, DraftEventsGateway],
 })
 export class DraftEventsModule {}

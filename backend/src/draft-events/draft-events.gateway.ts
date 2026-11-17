@@ -20,6 +20,7 @@ import {
 } from './turn-schedule';
 import {
   draftRoom,
+  DraftExpiredPayload,
   HealthPingPayload,
   PickConfirmedPayload,
   BanConfirmedPayload,
@@ -82,6 +83,29 @@ export class DraftEventsGateway
 
   private readonly logger = new Logger(DraftEventsGateway.name);
 
+  /**
+   * Live presence per draft: draftId → userId → socketIds currently in the
+   * room. Used by the reconnection grace period (R-013) to detect when a
+   * participant's last socket is gone.
+   */
+  private readonly draftPresence = new Map<number, Map<number, Set<string>>>();
+
+  /**
+   * Active reconnection grace timers: draftId → userId → timer. When the
+   * timer lapses the draft expires (R-013 / EC-001).
+   */
+  private readonly graceTimers = new Map<
+    number,
+    Map<number, ReturnType<typeof setTimeout>>
+  >();
+
+  /**
+   * Grace period after which a participant who never returned forfeits the
+   * draft. Configurable for tests via DRAFT_GRACE_PERIOD_MS (default 30s).
+   */
+  private readonly gracePeriodMs =
+    Number(process.env.DRAFT_GRACE_PERIOD_MS) || 30_000;
+
   constructor(
     private readonly wsJwtGuard: WsJwtGuard,
     private readonly prisma: PrismaService,
@@ -96,6 +120,16 @@ export class DraftEventsGateway
   afterInit(): void {
     this.health.startPeriodicLogging();
     this.logger.log('Draft events gateway initialised');
+  }
+
+  onModuleDestroy(): void {
+    // Do not leave grace timers running across a shutdown.
+    for (const timers of this.graceTimers.values()) {
+      for (const timer of timers.values()) {
+        clearTimeout(timer);
+      }
+    }
+    this.graceTimers.clear();
   }
 
   /**
@@ -125,6 +159,14 @@ export class DraftEventsGateway
       this.logger.log(
         `disconnect user=${removed.user.username} socket=${client.id} total=${this.health.stats().totalConnections}`,
       );
+    }
+
+    // If this socket was in a draft room, update presence and possibly start
+    // the reconnection grace period (R-013).
+    const user = client.data.user as SocketUser | undefined;
+    const draftId = client.data.draftId as number | undefined;
+    if (user && draftId) {
+      this.onParticipantSocketLost(draftId, user.id, client.id);
     }
   }
 
@@ -159,6 +201,7 @@ export class DraftEventsGateway
     await client.join(draftRoom(draft.id));
     client.data.draftId = draft.id;
     this.health.attachToDraft(client.id, draft.id);
+    this.trackPresence(draft.id, user.id, client.id);
 
     // Current turn snapshot to the whole room: doubles as the reconnection
     // state refresh for the opponent (R-013).
@@ -185,6 +228,8 @@ export class DraftEventsGateway
     if (!draftId) {
       return { ok: true };
     }
+
+    this.untrackPresence(draftId, user.id, client.id);
 
     const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
     if (draft) {
@@ -413,6 +458,27 @@ export class DraftEventsGateway
   }
 
   // -------------------------------------------------------------------------
+  // Cross-module API (draft creation flow, T-008)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Broadcast the authoritative session snapshot to a draft room. Used by
+   * the HTTP draft flows — `DraftService` calls this when the second player
+   * joins and the draft starts, so the waiting creator switches to the live
+   * view without polling.
+   */
+  async broadcastDraftUpdate(draftId: number): Promise<void> {
+    const session = await this.sessions.getOrCreate(draftId);
+    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
+    if (draft) {
+      this.applyRecordStatus(session, draft.status, draft.fearlessMode);
+    }
+    this.server
+      .to(draftRoom(draftId))
+      .emit('draft.update', session as unknown as Record<string, unknown>);
+  }
+
+  // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
 
@@ -589,6 +655,155 @@ export class DraftEventsGateway
   ): void {
     session.status = status;
     session.fearlessMode = fearlessMode;
+  }
+
+  // -------------------------------------------------------------------------
+  // Presence + reconnection grace period (R-013, T-008)
+  // -------------------------------------------------------------------------
+
+  /** Record a socket as present in a draft room; voids any grace timer. */
+  private trackPresence(
+    draftId: number,
+    userId: number,
+    socketId: string,
+  ): void {
+    let users = this.draftPresence.get(draftId);
+    if (!users) {
+      users = new Map();
+      this.draftPresence.set(draftId, users);
+    }
+    let sockets = users.get(userId);
+    if (!sockets) {
+      sockets = new Set();
+      users.set(userId, sockets);
+    }
+    sockets.add(socketId);
+
+    // The player is back — any pending reconnection grace window is void.
+    this.cancelGraceTimer(draftId, userId);
+  }
+
+  /** Remove one socket from a draft room's presence map. */
+  private untrackPresence(
+    draftId: number,
+    userId: number,
+    socketId: string,
+  ): void {
+    const users = this.draftPresence.get(draftId);
+    const sockets = users?.get(userId);
+    if (!sockets) {
+      return;
+    }
+    sockets.delete(socketId);
+    if (sockets.size === 0) {
+      users?.delete(userId);
+    }
+    if (users && users.size === 0) {
+      this.draftPresence.delete(draftId);
+    }
+  }
+
+  private hasPresence(draftId: number, userId: number): boolean {
+    return (this.draftPresence.get(draftId)?.get(userId)?.size ?? 0) > 0;
+  }
+
+  /**
+   * A participant socket dropped. While the user still has sockets in the
+   * room (other tabs/devices) nothing changes; once their last socket is
+   * gone the reconnection grace period starts — if they do not return, the
+   * draft expires (R-013: "player disconnected 30s+ cannot recover draft").
+   */
+  private onParticipantSocketLost(
+    draftId: number,
+    userId: number,
+    socketId: string,
+  ): void {
+    this.untrackPresence(draftId, userId, socketId);
+    if (this.hasPresence(draftId, userId)) {
+      return;
+    }
+    this.startGraceTimer(draftId, userId);
+  }
+
+  private startGraceTimer(draftId: number, userId: number): void {
+    this.cancelGraceTimer(draftId, userId);
+    const graceSeconds = Math.round(this.gracePeriodMs / 1000);
+    const timer = setTimeout(() => {
+      this.graceTimers.get(draftId)?.delete(userId);
+      void this.expireDraft(
+        draftId,
+        userId,
+        `A player was disconnected for more than ${graceSeconds}s`,
+      );
+    }, this.gracePeriodMs);
+    // A pending grace window must not keep the process alive on shutdown.
+    timer.unref();
+
+    let users = this.graceTimers.get(draftId);
+    if (!users) {
+      users = new Map();
+      this.graceTimers.set(draftId, users);
+    }
+    users.set(userId, timer);
+    this.logger.log(
+      `grace.start draft=${draftId} user=${userId} expiresInMs=${this.gracePeriodMs}`,
+    );
+  }
+
+  private cancelGraceTimer(draftId: number, userId: number): void {
+    const timers = this.graceTimers.get(draftId);
+    const timer = timers?.get(userId);
+    if (timer) {
+      clearTimeout(timer);
+      timers?.delete(userId);
+    }
+  }
+
+  private clearDraftTimers(draftId: number): void {
+    const timers = this.graceTimers.get(draftId);
+    if (!timers) {
+      return;
+    }
+    for (const timer of timers.values()) {
+      clearTimeout(timer);
+    }
+    this.graceTimers.delete(draftId);
+  }
+
+  /**
+   * Expire an in-progress draft after the reconnection grace period elapsed
+   * without the player returning (R-013 / EC-001): mark the row EXPIRED,
+   * drop the live Redis session and tell the room on `draft.expired`.
+   */
+  private async expireDraft(
+    draftId: number,
+    userId: number,
+    reason: string,
+  ): Promise<void> {
+    // Reconnected in the final instant — nothing to expire.
+    if (this.hasPresence(draftId, userId)) {
+      return;
+    }
+
+    // Atomically move IN_PROGRESS → EXPIRED; completed drafts and already
+    // expired drafts (concurrent timer) no-op.
+    const expired = await this.prisma.draft.updateMany({
+      where: { id: draftId, status: 'IN_PROGRESS' },
+      data: { status: 'EXPIRED', completedAt: new Date() },
+    });
+    if (expired.count === 0) {
+      return;
+    }
+
+    await this.sessions.deleteSession(draftId);
+    const payload: DraftExpiredPayload = { reason };
+    this.server
+      .to(draftRoom(draftId))
+      .emit('draft.expired', payload as unknown as Record<string, unknown>);
+    this.logger.log(`draft.expired draft=${draftId} reason="${reason}"`);
+
+    // Both players may have a timer pending; the draft is over either way.
+    this.clearDraftTimers(draftId);
   }
 }
 

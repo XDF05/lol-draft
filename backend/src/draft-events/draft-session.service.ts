@@ -86,6 +86,11 @@ export class DraftSessionService {
     await this.redis.set(sessionKey(state.draftId), JSON.stringify(state));
   }
 
+  /** Remove the live session entirely (draft expired or deleted). */
+  async deleteSession(draftId: number): Promise<void> {
+    await this.redis.del(sessionKey(draftId));
+  }
+
   /** Store (or replace) the acting team's pending selection (R-009). */
   async setPending(
     draftId: number,
