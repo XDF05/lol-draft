@@ -50,9 +50,9 @@ import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
  * - Connection health monitoring via `ConnectionHealthService`.
  *
  * Scope notes (per the task breakdown):
- * - Ban/pick PostgreSQL persistence and `ban.confirmed` DB sync, the 30s turn
- *   timer, auto-lock and turn advancement arrive in T-009 (TurnManager);
- *   actual pick ownership swaps arrive in T-010. This gateway maintains the
+ * - Ban/pick PostgreSQL persistence and `ban.confirmed`/`pick.confirmed`
+ *   broadcast, the 30s turn timer, auto-lock and turn advancement are handled
+ *   by T-009/T-010 (TurnManager); actual pick ownership swaps arrive in T-014. This gateway maintains the
  *   Redis live-session state those tasks build upon.
  *
  * Event validation middleware: the class-level `ValidationPipe` validates
@@ -376,37 +376,63 @@ export class DraftEventsGateway
     return { ok: true, championId };
   }
 
-  /** Lock the pending pick: persists to session state and broadcasts `pick.confirmed`. */
+  /**
+   * Lock the pending pick: persists to session state + PostgreSQL, broadcasts
+   * `pick.confirmed`, then hands the turn over to the TurnManager (T-010).
+   */
   @SubscribeMessage('pick.lock')
   async handlePickLock(@ConnectedSocket() client: Socket): Promise<{
     ok: true;
     championId: string;
   }> {
-    const { draftId, team } = await this.requireDraftContext(client);
-    const session = await this.sessions.getOrCreate(draftId);
-    this.requireTurn(session, team, 'PICK');
+    const { draftId, session, team } = await this.requireDraftContext(client);
+    const turn = this.requireTurn(session, team, 'PICK');
 
-    const { state, championId } = await this.sessions.confirmPick(draftId, team);
-    if (!championId) {
+    // A lock without a pending selection must not consume the turn: leave
+    // the claim untouched so the running timer still resolves the turn.
+    if (!session.pending[team]?.championId) {
       throw new WsException('No pending pick selection to lock');
     }
 
-    const payload: PickConfirmedPayload = {
-      championId,
-      team,
-      picks: state.picks,
-    };
-    this.server
-      .to(draftRoom(draftId))
-      .emit('pick.confirmed', payload as unknown as Record<string, unknown>);
-    this.server
-      .to(draftRoom(draftId))
-      .emit('draft.update', state as unknown as Record<string, unknown>);
+    // Exactly one of {this lock, the timer expiry} resolves the turn; a
+    // lock racing the deadline is rejected here.
+    if (!this.turnManager.claimTurnAction(draftId, turn.turnNumber)) {
+      throw new WsException('Turn already resolved');
+    }
 
-    this.logger.log(
-      `pick.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
-    );
-    return { ok: true, championId };
+    try {
+      const { state, championId } = await this.sessions.confirmPick(draftId, team);
+      if (!championId) {
+        this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
+        throw new WsException('No pending pick selection to lock');
+      }
+
+      await this.turnManager.persistPickRow(draftId, championId, team);
+
+      const payload: PickConfirmedPayload = {
+        championId,
+        team,
+        picks: state.picks,
+      };
+      this.server
+        .to(draftRoom(draftId))
+        .emit('pick.confirmed', payload as unknown as Record<string, unknown>);
+      this.server
+        .to(draftRoom(draftId))
+        .emit('draft.update', state as unknown as Record<string, unknown>);
+
+      this.logger.log(
+        `pick.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
+      );
+      // Stop the countdown and announce the next turn (turn.end/turn.start).
+      await this.turnManager.handleActionCompleted(draftId);
+      return { ok: true, championId };
+    } catch (err) {
+      // The claimed action itself failed (e.g. the Pick row could not be
+      // persisted): free the turn so the still-running timer can resolve it.
+      this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
+      throw err;
+    }
   }
 
   /** Voluntary skip of the acting team's pick turn. */

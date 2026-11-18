@@ -323,8 +323,8 @@ export class TurnManagerService implements OnModuleDestroy {
   }
 
   /**
-   * Timeout with a pending pick: lock it in the live session and broadcast.
-   * Pick row persistence (and the manual pick flow) land with T-010.
+   * Timeout with a pending pick: lock it in the live session, persist the
+   * Pick row and broadcast (T-010).
    */
   private async autoLockPick(
     draftId: number,
@@ -335,6 +335,7 @@ export class TurnManagerService implements OnModuleDestroy {
     if (!championId) {
       return null;
     }
+    await this.persistPickRow(draftId, championId, team);
     const payload: PickConfirmedPayload = { championId, team, picks: state.picks };
     this.emitTo(draftId, 'pick.confirmed', payload);
     this.emitTo(draftId, 'draft.update', state);
@@ -362,6 +363,26 @@ export class TurnManagerService implements OnModuleDestroy {
     }
     await this.prisma.ban.create({
       data: { draftId, championId, phase, playerId, team, locked: true },
+    });
+  }
+
+  /**
+   * One Pick row per locked pick (T-010: "Update PostgreSQL picks table").
+   * Shared by the timer's auto-lock and the gateway's manual `pick.lock`.
+   */
+  async persistPickRow(
+    draftId: number,
+    championId: string,
+    team: Team,
+  ): Promise<void> {
+    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
+    const playerId =
+      team === 'BLUE' ? draft?.blueTeamPlayerId : draft?.redTeamPlayerId;
+    if (!playerId) {
+      return;
+    }
+    await this.prisma.pick.create({
+      data: { draftId, championId, playerId, team, locked: true },
     });
   }
 

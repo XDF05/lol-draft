@@ -363,19 +363,19 @@ WAITING ─► SELECTING ─► LOCKED ─► COMPLETED
 **Deliverable**: Complete Pick Phase 1 with asymmetric distribution
 
 **Tasks**:
-- [ ] Create PickPhase component variant
-- [ ] Implement pick selection UI (similar to Ban but different flow)
-- [ ] Add turn sequence logic:
+- [x] Create PickPhase component variant
+- [x] Implement pick selection UI (similar to Ban but different flow)
+- [x] Add turn sequence logic:
   - Turn 7: Blue picks 1 champion
   - Turn 8: Red picks 1 champion
   - Turn 9: Red picks 2 champions (separate actions)
   - Turn 10-11: Blue picks 2 champions
   - Turn 12: Red picks 3rd pick of P1
-- [ ] Validate pick against ban list and fearless mode
-- [ ] Implement pick confirmation flow
-- [ ] Update PostgreSQL picks table
-- [ ] Broadcast pick updates to opponent immediately
-- [ ] Display "Blue Advantage" / "Red Advantage" indicators
+- [x] Validate pick against ban list and fearless mode
+- [x] Implement pick confirmation flow
+- [x] Update PostgreSQL picks table
+- [x] Broadcast pick updates to opponent immediately
+- [x] Display "Blue Advantage" / "Red Advantage" indicators
 
 **Acceptance Criteria**:
 ```typescript

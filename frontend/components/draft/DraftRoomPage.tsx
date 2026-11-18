@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import BanPhase from './BanPhase';
+import PickPhase from './PickPhase';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import { useAuth } from '../../hooks/useAuth';
 import useSocket from '../../hooks/useSocket';
@@ -336,9 +337,10 @@ export default function DraftRoomPage({ code }: { code: string }) {
           {myTeam === 'RED' ? ' (you)' : ''}
         </div>
 
-        {/* Ban Phase board (T-009): selection grid + countdown during ban
-            turns; pick phases keep the plain summary until T-010. */}
+        {/* Selection boards: ban grid + countdown (T-009), pick grid with
+            advantage indicators (T-010). */}
         {currentTurnInfo?.phase.startsWith('BANNING') && <BanPhase />}
+        {currentTurnInfo?.phase.startsWith('PICKING') && <PickPhase />}
 
         <div style={cardStyle}>
           {currentTurnInfo ? (

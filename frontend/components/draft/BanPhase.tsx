@@ -1,19 +1,15 @@
 'use client';
 
-import {
-  useEffect,
-  useState,
-  type CSSProperties,
-} from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
 import type {
   BanConfirmedEntry,
   PickConfirmedEntry,
-  TimerWarningPayload,
-  TurnStartPayload,
 } from '../../lib/socket';
 import type { Champion } from '../../lib/types';
+import { ChampionCard, championGridStyle } from './ChampionCard';
+import { countdownColor, useTurnCountdown } from './useTurnCountdown';
 
 /**
  * Ban Phase selection board (T-009), shared by the Blue and Red teams.
@@ -23,17 +19,10 @@ import type { Champion } from '../../lib/types';
  *   R-005/R-011 — the server enforces the same rules).
  * - Selection stages a *pending* ban locally; the opponent only sees it
  *   once `ban.confirmed` broadcasts the lock (R-009).
- * - The countdown ticks locally from the `turn.start` payload
- *   (`remainingSeconds` on a mid-turn reconnect, else `timerSeconds`) and
- *   resyncs whenever the server's `timer.warning` fires at 5s / 3s / 1s.
- *   The server auto-locks (or skips) at zero, so the UI only mirrors state.
+ * - The countdown ticks locally from the `turn.start` payload and resyncs
+ *   whenever the server's `timer.warning` fires at 5s / 3s / 1s. The server
+ *   auto-locks (or skips) at zero, so the UI only mirrors state.
  */
-
-/** Warning tier colours at 5s / 3s / 1s (R-010). */
-const WARNING_AMBER = '#d97706';
-const WARNING_ORANGE = '#ea580c';
-const WARNING_RED = '#dc2626';
-const NEUTRAL = '#111827';
 
 const sectionStyle: CSSProperties = {
   border: '1px solid #d1d5db',
@@ -41,13 +30,6 @@ const sectionStyle: CSSProperties = {
   padding: '1rem',
   marginBottom: '1rem',
   background: '#fff',
-};
-
-const gridStyle: CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(88px, 1fr))',
-  gap: '0.5rem',
-  marginTop: '0.75rem',
 };
 
 /**
@@ -68,122 +50,6 @@ export function availableForBan(
   return champions.filter(
     (champion) =>
       !banned.has(champion.id) && !(picked?.has(champion.id) ?? false),
-  );
-}
-
-/** Colour for the countdown at a given remaining-seconds value. */
-function countdownColor(remaining: number): string {
-  if (remaining <= 1) return WARNING_RED;
-  if (remaining <= 3) return WARNING_ORANGE;
-  if (remaining <= 5) return WARNING_AMBER;
-  return NEUTRAL;
-}
-
-/**
- * Local countdown for the current turn: starts from the last `turn.start`
- * (preferring a mid-turn `remainingSeconds`), ticks down once a second, and
- * snaps to the server's authoritative `timer.warning` values.
- */
-function useTurnCountdown(): number | null {
-  const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
-  const timerWarning = useDraftStore((s) => s.timerWarning);
-  const [remaining, setRemaining] = useState<number | null>(null);
-
-  // New turn (or reconnect into one) → restart the local countdown.
-  useEffect(() => {
-    if (!currentTurnInfo) {
-      setRemaining(null);
-      return;
-    }
-    setRemaining(
-      currentTurnInfo.remainingSeconds ?? currentTurnInfo.timerSeconds,
-    );
-  }, [currentTurnInfo]);
-
-  // One tick per second for the current turn; restarted only on turn change.
-  useEffect(() => {
-    if (!currentTurnInfo) {
-      return;
-    }
-    const interval = window.setInterval(() => {
-      setRemaining((value) =>
-        value === null || value <= 0 ? value : value - 1,
-      );
-    }, 1000);
-    return () => window.clearInterval(interval);
-  }, [currentTurnInfo]);
-
-  // Server warnings are authoritative: correct a drifting clock downward
-  // (never upward — a late warning must not resurrect time that passed).
-  useEffect(() => {
-    if (!timerWarning || !currentTurnInfo) {
-      return;
-    }
-    applyWarningIfCurrent(timerWarning, currentTurnInfo, setRemaining);
-  }, [timerWarning, currentTurnInfo]);
-
-  return remaining;
-}
-
-function applyWarningIfCurrent(
-  warning: TimerWarningPayload,
-  turn: TurnStartPayload,
-  setRemaining: (update: (value: number | null) => number | null) => void,
-): void {
-  if (warning.turn.turnNumber !== turn.turnNumber) {
-    return; // a stale warning from the previous turn
-  }
-  setRemaining((value) =>
-    value === null ? null : Math.min(value, warning.seconds),
-  );
-}
-
-function ChampionCard({
-  champion,
-  selected,
-  disabled,
-  onToggle,
-}: {
-  champion: Champion;
-  selected: boolean;
-  disabled: boolean;
-  onToggle: () => void;
-}) {
-  const cardStyle: CSSProperties = {
-    border: selected ? '2px solid #1d4ed8' : '1px solid #d1d5db',
-    borderRadius: '0.375rem',
-    padding: '0.375rem',
-    textAlign: 'center',
-    background: selected ? '#eff6ff' : '#fff',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.45 : 1,
-    fontSize: '0.75rem',
-  };
-
-  return (
-    <button
-      type="button"
-      style={cardStyle}
-      disabled={disabled}
-      aria-pressed={selected}
-      onClick={onToggle}
-    >
-      <img
-        src={champion.iconUrl}
-        alt={champion.name}
-        width={48}
-        height={48}
-        style={{ borderRadius: '0.25rem', display: 'block', margin: '0 auto' }}
-      />
-      <span style={{ display: 'block', marginTop: '0.25rem' }}>
-        {champion.name}
-      </span>
-      {selected && (
-        <span style={{ display: 'block', color: '#1d4ed8', fontWeight: 600 }}>
-          Selected
-        </span>
-      )}
-    </button>
   );
 }
 
@@ -279,7 +145,7 @@ export default function BanPhase() {
           No champions left to ban.
         </p>
       ) : (
-        <div style={gridStyle}>
+        <div style={championGridStyle}>
           {available.map((champion) => (
             <ChampionCard
               key={champion.id}

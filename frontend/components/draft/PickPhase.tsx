@@ -1,0 +1,224 @@
+'use client';
+
+import { useState, type CSSProperties } from 'react';
+import { useChampionData } from '../../hooks/useChampionData';
+import { useDraftStore } from '../../store/draftStore';
+import type {
+  BanConfirmedEntry,
+  PickConfirmedEntry,
+  Team,
+} from '../../lib/socket';
+import type { Champion } from '../../lib/types';
+import { ChampionCard, championGridStyle } from './ChampionCard';
+import { countdownColor, useTurnCountdown } from './useTurnCountdown';
+
+/**
+ * Pick Phase selection board (T-010), shared by the Blue and Red teams.
+ *
+ * - Banned champions and every locked pick are removed from the pool
+ *   immediately (R-011), so the component also serves Pick Phase 2.
+ * - The turn schedule supplies the asymmetric pick order; this board only
+ *   mirrors it and highlights the back-to-back "advantage" picks and the
+ *   Red side's closing counter-pick.
+ * - Selection stages a *pending* pick locally; the opponent only sees it
+ *   once `pick.confirmed` broadcasts the lock (R-009).
+ */
+
+const sectionStyle: CSSProperties = {
+  border: '1px solid #d1d5db',
+  borderRadius: '0.5rem',
+  padding: '1rem',
+  marginBottom: '1rem',
+  background: '#fff',
+};
+
+/** Champions still selectable for a pick: not banned and not already picked. */
+export function availableForPick(
+  champions: readonly Champion[],
+  bans: readonly BanConfirmedEntry[],
+  picks: readonly PickConfirmedEntry[],
+): Champion[] {
+  const banned = new Set(bans.map((b) => b.championId));
+  const picked = new Set(picks.map((p) => p.championId));
+  return champions.filter(
+    (champion) => !banned.has(champion.id) && !picked.has(champion.id),
+  );
+}
+
+export interface PickAdvantage {
+  team: Team;
+  label: string;
+  detail: string;
+}
+
+/**
+ * Pick Phase 1 advantage windows (R-004): Red picks twice in a row on turns
+ * 8-9, Blue answers with two in a row on turns 10-11, and Red closes the
+ * phase with a counter-pick on turn 12.
+ */
+export function pickAdvantage(turnNumber: number): PickAdvantage | null {
+  switch (turnNumber) {
+    case 8:
+    case 9:
+      return {
+        team: 'RED',
+        label: 'Red Advantage',
+        detail: 'Red has back-to-back picks.',
+      };
+    case 10:
+    case 11:
+      return {
+        team: 'BLUE',
+        label: 'Blue Advantage',
+        detail: 'Blue has back-to-back picks.',
+      };
+    case 12:
+      return {
+        team: 'RED',
+        label: 'Red Counter-Pick',
+        detail: 'Final pick of Pick Phase 1.',
+      };
+    default:
+      return null;
+  }
+}
+
+export default function PickPhase() {
+  const myTeam = useDraftStore((s) => s.myTeam);
+  const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
+  const bans = useDraftStore((s) => s.bans);
+  const picks = useDraftStore((s) => s.picks);
+  const pending = useDraftStore((s) => s.pending);
+  const selectPick = useDraftStore((s) => s.selectPick);
+  const lockPick = useDraftStore((s) => s.lockPick);
+  const { champions, status: poolStatus, error: poolError } = useChampionData();
+
+  const remaining = useTurnCountdown();
+  const [locking, setLocking] = useState(false);
+
+  const isPickTurn =
+    currentTurnInfo !== null && currentTurnInfo.actionType === 'PICK';
+  const myPending = myTeam ? pending[myTeam] ?? null : null;
+  const selectedId =
+    myPending?.type === 'PICK' ? (myPending.championId ?? null) : null;
+  const isMyTurn = isPickTurn && currentTurnInfo?.expectedTeam === myTeam;
+  const canSelect = isMyTurn && !locking;
+  const available = availableForPick(champions, bans, picks);
+  const advantage = currentTurnInfo
+    ? pickAdvantage(currentTurnInfo.turnNumber)
+    : null;
+
+  async function handleLock() {
+    if (!selectedId || locking) {
+      return;
+    }
+    setLocking(true);
+    try {
+      await lockPick();
+    } finally {
+      setLocking(false);
+    }
+  }
+
+  function toggleSelection(championId: string) {
+    if (!canSelect) {
+      return;
+    }
+    // Toggle: clicking the staged champion again clears the selection.
+    void selectPick(selectedId === championId ? null : championId);
+  }
+
+  if (!isPickTurn) {
+    return null; // rendered only during pick phases
+  }
+
+  const accent = myTeam === 'RED' ? '#b91c1c' : '#1d4ed8';
+
+  return (
+    <div style={sectionStyle}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          gap: '1rem',
+        }}
+      >
+        <strong>
+          {isMyTurn
+            ? 'Your pick'
+            : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
+        </strong>
+        {remaining !== null && (
+          <span
+            style={{
+              color: countdownColor(remaining),
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {remaining}s
+          </span>
+        )}
+      </div>
+
+      {advantage && (
+        <p
+          style={{
+            margin: '0.5rem 0 0',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '0.375rem',
+            background: advantage.team === 'BLUE' ? '#eff6ff' : '#fef2f2',
+            color: advantage.team === 'BLUE' ? '#1e40af' : '#991b1b',
+            fontWeight: 600,
+          }}
+        >
+          {advantage.label}{' '}
+          <span style={{ fontWeight: 400 }}>— {advantage.detail}</span>
+        </p>
+      )}
+
+      {selectedId && (
+        <p style={{ margin: '0.5rem 0 0', color: accent }}>
+          Staged: <strong>{selectedId}</strong> — lock it in or pick another.
+        </p>
+      )}
+
+      {poolStatus === 'error' ? (
+        <p style={{ marginTop: '0.75rem', color: '#b91c1c' }}>
+          {poolError ?? 'Could not load the champion pool.'}
+        </p>
+      ) : poolStatus !== 'ready' ? (
+        <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
+          Loading champion pool…
+        </p>
+      ) : available.length === 0 ? (
+        <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
+          No champions left to pick.
+        </p>
+      ) : (
+        <div style={championGridStyle}>
+          {available.map((champion) => (
+            <ChampionCard
+              key={champion.id}
+              champion={champion}
+              selected={selectedId === champion.id}
+              disabled={!canSelect}
+              accent={accent}
+              onToggle={() => toggleSelection(champion.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        style={{ marginTop: '0.75rem' }}
+        disabled={!selectedId || locking || !isMyTurn}
+        onClick={() => void handleLock()}
+      >
+        {locking ? 'Locking…' : 'Lock pick'}
+      </button>
+    </div>
+  );
+}

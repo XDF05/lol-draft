@@ -68,7 +68,7 @@ export interface BanConfirmedEntry {
   locked: boolean;
 }
 
-/** One confirmed pick (mirrors a `Pick` row; persisted with T-010). */
+/** One confirmed pick (mirrors a `Pick` row, persisted on lock in T-010). */
 export interface PickConfirmedEntry {
   championId: string;
   team: Team;
