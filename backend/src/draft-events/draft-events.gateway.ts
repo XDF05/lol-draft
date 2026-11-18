@@ -390,9 +390,14 @@ export class DraftEventsGateway
 
     // A lock without a pending selection must not consume the turn: leave
     // the claim untouched so the running timer still resolves the turn.
-    if (!session.pending[team]?.championId) {
+    const pendingPick = session.pending[team]?.championId;
+    if (!pendingPick) {
       throw new WsException('No pending pick selection to lock');
     }
+
+    // Re-validate at lock time: a pick must never be committed against a
+    // champion that is banned or already picked (R-006/R-011, DS-NF-003).
+    this.validatePickChampion(session, pendingPick);
 
     // Exactly one of {this lock, the timer expiry} resolves the turn; a
     // lock racing the deadline is rejected here.

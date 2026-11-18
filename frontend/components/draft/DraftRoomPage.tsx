@@ -10,7 +10,7 @@ import {
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import BanPhase from './BanPhase';
-import PickPhase from './PickPhase';
+import PickPhase, { pickCounts } from './PickPhase';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import { useAuth } from '../../hooks/useAuth';
 import useSocket from '../../hooks/useSocket';
@@ -102,6 +102,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
   const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
   const bans = useDraftStore((s) => s.bans);
   const picks = useDraftStore((s) => s.picks);
+  const pickTotals = pickCounts(picks);
   const draftExpired = useDraftStore((s) => s.draftExpired);
   const lastError = useDraftStore((s) => s.lastError);
   const socketJoinDraft = useDraftStore((s) => s.joinDraft);
@@ -384,7 +385,10 @@ export default function DraftRoomPage({ code }: { code: string }) {
         </div>
 
         <div style={cardStyle}>
-          <strong>Picks</strong>
+          <strong>Picks</strong>{' '}
+          <span style={{ color: '#4b5563', fontWeight: 400 }}>
+            (Blue {pickTotals.BLUE}/5 · Red {pickTotals.RED}/5)
+          </span>
           {picks.length === 0 ? (
             <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
               No picks yet.

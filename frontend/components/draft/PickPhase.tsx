@@ -17,6 +17,8 @@ import { countdownColor, useTurnCountdown } from './useTurnCountdown';
  *
  * - Banned champions and every locked pick are removed from the pool
  *   immediately (R-011), so the component also serves Pick Phase 2.
+ * - Pick Phase 2 (R-006) opens with Red's counter-pick, gives Blue the
+ *   back-to-back advantage and closes with Red's final pick.
  * - The turn schedule supplies the asymmetric pick order; this board only
  *   mirrors it and highlights the back-to-back "advantage" picks and the
  *   Red side's closing counter-pick.
@@ -45,6 +47,19 @@ export function availableForPick(
   );
 }
 
+/**
+ * Locked picks per team. Both sides finish the draft with 5 picks
+ * (R-006: Blue = 5, Red = 5), so the UI can show progress against that total.
+ */
+export function pickCounts(
+  picks: readonly PickConfirmedEntry[],
+): Record<Team, number> {
+  return {
+    BLUE: picks.filter((pick) => pick.team === 'BLUE').length,
+    RED: picks.filter((pick) => pick.team === 'RED').length,
+  };
+}
+
 export interface PickAdvantage {
   team: Team;
   label: string;
@@ -52,9 +67,11 @@ export interface PickAdvantage {
 }
 
 /**
- * Pick Phase 1 advantage windows (R-004): Red picks twice in a row on turns
- * 8-9, Blue answers with two in a row on turns 10-11, and Red closes the
- * phase with a counter-pick on turn 12.
+ * Pick advantage windows (R-004, R-006): Red picks twice in a row on turns
+ * 8-9, Blue answers with two in a row on turns 10-11 and Red closes Pick
+ * Phase 1 on turn 12. Pick Phase 2 opens with Red's counter-pick on turn 17,
+ * Blue takes the back-to-back advantage on turns 18-19, and Red closes the
+ * draft on turn 20.
  */
 export function pickAdvantage(turnNumber: number): PickAdvantage | null {
   switch (turnNumber) {
@@ -77,6 +94,25 @@ export function pickAdvantage(turnNumber: number): PickAdvantage | null {
         team: 'RED',
         label: 'Red Counter-Pick',
         detail: 'Final pick of Pick Phase 1.',
+      };
+    case 17:
+      return {
+        team: 'RED',
+        label: 'Red Counter-Pick',
+        detail: 'First pick of Pick Phase 2 — Red answers the Phase 2 bans.',
+      };
+    case 18:
+    case 19:
+      return {
+        team: 'BLUE',
+        label: 'Blue Advantage',
+        detail: 'Blue has back-to-back picks.',
+      };
+    case 20:
+      return {
+        team: 'RED',
+        label: 'Red Last Pick',
+        detail: 'Final pick of the draft.',
       };
     default:
       return null;
@@ -104,6 +140,8 @@ export default function PickPhase() {
   const isMyTurn = isPickTurn && currentTurnInfo?.expectedTeam === myTeam;
   const canSelect = isMyTurn && !locking;
   const available = availableForPick(champions, bans, picks);
+  const totals = pickCounts(picks);
+  const isPickPhase2 = currentTurnInfo?.phase === 'PICKING_P2';
   const advantage = currentTurnInfo
     ? pickAdvantage(currentTurnInfo.turnNumber)
     : null;
@@ -145,6 +183,7 @@ export default function PickPhase() {
         }}
       >
         <strong>
+          {isPickPhase2 ? 'Pick Phase 2 — ' : ''}
           {isMyTurn
             ? 'Your pick'
             : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
@@ -161,6 +200,10 @@ export default function PickPhase() {
           </span>
         )}
       </div>
+
+      <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>
+        Picks — Blue {totals.BLUE}/5 · Red {totals.RED}/5
+      </p>
 
       {advantage && (
         <p

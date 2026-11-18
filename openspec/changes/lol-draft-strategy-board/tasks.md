@@ -459,45 +459,33 @@ async function processBanP2(playerId: string, championId: string) {
 **Deliverable**: Complete Pick Phase 2 with final picks
 
 **Tasks**:
-- [ ] Extend pick phase UI for Phase 2
-- [ ] Implement turn sequence: Red → Blue (advantage) → Red
-- [ ] Validate picks against all bans and existing picks
-- [ ] Calculate and display total picks per team (Blue: 5, Red: 5)
-- [ ] Mark draft as COMPLETE after final pick locks
-- [ ] Trigger save to database with completedAt timestamp
-- [ ] Update draft status to 'COMPLETE'
+- [x] Extend pick phase UI for Phase 2
+- [x] Implement turn sequence: Red → Blue (advantage) → Red
+- [x] Validate picks against all bans and existing picks
+- [x] Calculate and display total picks per team (Blue: 5, Red: 5)
+- [x] Persist the final pick and advance to the Finalization phase (turn 21)
 
 **Acceptance Criteria**:
 ```typescript
 async function handleFinalPick(playerId: string, championId: string) {
   const draft = await getDraft();
   
-  // Verify this is the final turn
+  // Verify this is the final action turn
   if (draft.currentTurn !== 20) {
     throw new Error('Not the last pick');
   }
   
-  // Final validation
-  const isAvailable = !draft.bans.some(b => b.championId === championId);
+  // Final validation against every ban and locked pick
+  const isAvailable =
+    !draft.bans.some(b => b.championId === championId) &&
+    !draft.picks.some(p => p.championId === championId);
   if (!isAvailable) throw new Error('Champion not available');
   
-  // Apply and finalize
+  // Apply the final pick; the turn manager then opens Finalization (turn 21)
   await prisma.pick.create({ ... });
   
-  // Mark draft complete
-  await prisma.draft.update({
-    where: { id: draft.id },
-    data: { 
-      status: 'COMPLETE',
-      completedAt: new Date()
-    }
-  });
-  
-  // Notify public viewers
-  socket.broadcast.emit('draft.completed', {
-    bluePicks: draft.bluePicks,
-    redPicks: draft.redPicks
-  });
+  // Completion (status COMPLETE, completedAt, draft.completed) happens when
+  // the 60-second Finalization timer expires — see T-014 (R-007/R-014).
 }
 ```
 
@@ -564,6 +552,10 @@ const canToggleFearless = useDraftStore.getState().draftStatus === 'WAITING_FOR_
 - [ ] Persist approved swaps to database
 - [ ] Update pick ownership after swap approval
 - [ ] Lock draft when timer expires
+- [ ] Mark draft as COMPLETE after Finalization ends
+- [ ] Trigger save to database with completedAt timestamp
+- [ ] Update draft status to 'COMPLETE'
+- [ ] Broadcast draft.completed with the final picks
 
 **Acceptance Criteria**:
 ```typescript
