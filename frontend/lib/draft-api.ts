@@ -65,3 +65,18 @@ export async function joinDraftByCode(
   );
   return data;
 }
+
+/**
+ * Toggle Fearless Drafting mode (T-013). The API rejects the change once
+ * the draft has started; the UI only offers it while waiting for players.
+ */
+export async function setFearlessMode(
+  code: string,
+  fearless: boolean,
+): Promise<DraftView> {
+  const { data } = await api.post<DraftView>(
+    `/draft/${encodeURIComponent(code)}/fearless-toggle`,
+    { fearless },
+  );
+  return data;
+}

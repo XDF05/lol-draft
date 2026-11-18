@@ -501,13 +501,13 @@ async function handleFinalPick(playerId: string, championId: string) {
 **Deliverable**: Fearless Drafting mode with proper state management
 
 **Tasks**:
-- [ ] Create FearlessToggle component with modal confirmation
-- [ ] Implement POST /draft/:code/fearless-toggle endpoint
-- [ ] Validate toggle only allowed before draft starts (status == WAITING_FOR_PLAYERS)
-- [ ] Persist fearlessMode to draft record
-- [ ] Add visual indicator in UI when enabled
-- [ ] Show warning about permanent lock consequences
-- [ ] Display "FEARLESS MODE ACTIVE" banner throughout draft
+- [x] Create FearlessToggle component with modal confirmation
+- [x] Implement POST /draft/:code/fearless-toggle endpoint
+- [x] Validate toggle only allowed before draft starts (status == WAITING_FOR_PLAYERS)
+- [x] Persist fearlessMode to draft record
+- [x] Add visual indicator in UI when enabled
+- [x] Show warning about permanent lock consequences
+- [x] Display "FEARLESS MODE ACTIVE" banner throughout draft
 
 **Acceptance Criteria**:
 ```typescript

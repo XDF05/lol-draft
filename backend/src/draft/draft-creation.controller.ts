@@ -10,6 +10,7 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DraftService } from './draft.service';
 import { CreateDraftDto } from './dto/create-draft.dto';
+import { FearlessToggleDto } from './dto/fearless-toggle.dto';
 import { JoinDraftDto } from './dto/join-draft.dto';
 
 interface AuthenticatedRequest {
@@ -45,5 +46,18 @@ export class DraftCreationController {
     @Body() dto: JoinDraftDto,
   ) {
     return this.draftService.join(req.user.id, code, dto);
+  }
+
+  /**
+   * Toggle Fearless Drafting mode before the draft starts (T-013). Locked
+   * once the draft reaches IN_PROGRESS.
+   */
+  @Post(':code/fearless-toggle')
+  toggleFearless(
+    @Req() req: AuthenticatedRequest,
+    @Param('code') code: string,
+    @Body() dto: FearlessToggleDto,
+  ) {
+    return this.draftService.setFearless(req.user.id, code, dto.fearless);
   }
 }

@@ -10,6 +10,7 @@ import {
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import BanPhase from './BanPhase';
+import FearlessToggle, { FearlessBanner } from './FearlessToggle';
 import PickPhase, { pickCounts } from './PickPhase';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import { useAuth } from '../../hooks/useAuth';
@@ -99,6 +100,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
   const draftId = useDraftStore((s) => s.draftId);
   const draftStatus = useDraftStore((s) => s.draftStatus);
   const myTeam = useDraftStore((s) => s.myTeam);
+  const storeFearlessMode = useDraftStore((s) => s.fearlessMode);
   const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
   const bans = useDraftStore((s) => s.bans);
   const picks = useDraftStore((s) => s.picks);
@@ -206,6 +208,11 @@ export default function DraftRoomPage({ code }: { code: string }) {
     );
   }
 
+  // The HTTP view is updated by the toggling client; the socket-fed store
+  // keeps the opponent's screen in sync via draft.update broadcasts.
+  const fearlessActive =
+    view.fearlessMode || (draftId === view.id && storeFearlessMode);
+
   if (status === 'EXPIRED') {
     return (
       <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
@@ -243,6 +250,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
           style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}
         >
           <h1>Draft room</h1>
+          {fearlessActive && <FearlessBanner />}
           <div style={cardStyle}>
             {joining ? (
               <p>Joining draft {view.code}…</p>
@@ -276,6 +284,12 @@ export default function DraftRoomPage({ code }: { code: string }) {
           <h1 style={{ margin: 0 }}>Waiting for opponent</h1>
           <ConnectionIndicator />
         </div>
+        {fearlessActive && <FearlessBanner />}
+        <FearlessToggle
+          code={view.code}
+          enabled={fearlessActive}
+          onChanged={setView}
+        />
         <div style={cardStyle}>
           <p>
             Send this code to your opponent — they open{' '}
@@ -329,6 +343,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
           <ConnectionIndicator />
         </div>
         {lastError && <p style={{ color: '#b91c1c' }}>{lastError}</p>}
+        {fearlessActive && <FearlessBanner />}
 
         <div style={cardStyle}>
           <strong>Blue:</strong> {view.bluePlayer?.username ?? '—'}
