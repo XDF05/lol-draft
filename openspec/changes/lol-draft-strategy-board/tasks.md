@@ -195,7 +195,7 @@ const cached = await redisService.get('champions:data');
 - [x] Define server-side event handlers:
   - [x] ban.select, ban.lock, ban.skip
   - [x] pick.select, pick.lock, pick.skip
-  - [x] swap.request, swap.approve, swap.reject
+  - [x] pick.swap (team-internal, Finalization) + pick.reordered broadcast
 - [x] Implement event validation middleware
 - [x] Add connection health monitoring
 
@@ -533,24 +533,23 @@ const canToggleFearless = useDraftStore.getState().draftStatus === 'WAITING_FOR_
 
 ---
 
-### T-014: Finalization Phase & Champion Swaps
+### T-014: Finalization Phase & Team-Internal Pick Swaps
 **ID**: TASK-PHASE3-T014  
 **Priority**: Medium  
 **Estimate**: 5 hours  
 **Dependencies**: T-012  
-**Deliverable**: 60-second grace period with swap functionality
+**Deliverable**: 60-second grace period for team-internal pick reordering
 
 **Tasks**:
 - [ ] Create FinalizationPhase component
 - [ ] Implement 60-second countdown timer
-- [ ] Add "Request Swap" button for each pick
-- [ ] Create swap request workflow:
-  1. Player selects their pick to swap
-  2. Shows opponent's pick as target
-  3. Other player approves or rejects
-- [ ] Display swap requests prominently on both client screens
-- [ ] Persist approved swaps to database
-- [ ] Update pick ownership after swap approval
+- [ ] Add "Swap Pick" control on each pick of the player's own team
+- [ ] Implement team-internal swap workflow:
+  1. Player selects their own pick and a teammate's pick to exchange
+  2. Swap applies immediately — the opposing team is never involved (no approval/rejection)
+  3. Swaps can be repeated unlimited times while the timer runs
+- [ ] Broadcast the reordered pick list to both client screens after each swap
+- [ ] Persist the swapped pick order to database
 - [ ] Lock draft when timer expires
 - [ ] Mark draft as COMPLETE after Finalization ends
 - [ ] Trigger save to database with completedAt timestamp
@@ -559,50 +558,50 @@ const canToggleFearless = useDraftStore.getState().draftStatus === 'WAITING_FOR_
 
 **Acceptance Criteria**:
 ```typescript
-interface SwapRequest {
-  id: string;
-  playerId: string;
-  requestingTeam: 'BLUE' | 'RED';
-  championToSwapOutId: string;
-  championToSwapWithId?: string; // Optional if player has no picks yet
-  
-  createdAt: Date;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
-}
-
-async function handleSwapRequest(playerId: string, swapData: SwapRequest) {
+async function handlePickSwap(playerId: string, fromPickId: string, toPickId: string) {
   const draft = await getDraft();
-  
-  // Create pending request
-  await prisma.swapRequest.create({ data: { ...swapData } });
-  
-  // Broadcast to opponent
-  socket.emitToRoom(`draft:${draft.id}`, 'swap.request.pending', swapData);
-}
 
-async function handleSwapApproval(requestId: string, approve: boolean) {
-  const request = await prisma.swapRequest.findUnique({ 
-    where: { id: requestId } 
-  });
-  
-  if (!approve || request.status !== 'PENDING') {
-    throw new UnauthorizedHttpException('Invalid approval');
+  // Swaps are only allowed during the Finalization phase
+  if (draft.status !== 'FINALIZATION') {
+    throw new UnauthorizedHttpException('Swaps only allowed during Finalization');
   }
-  
-  // Update picks in database
-  await prisma.$transaction(async (tx) => {
-    // Revoke original pick from requesting player
-    const swapOut = await tx.pick.findUnique({ 
-      where: { id: request.championToSwapOutId } 
-    });
-    
-    await tx.pick.delete({ where: { id: swapOut.id } });
-    
-    // Create new pick for swapped champion (if needed)
-    // ...
+
+  const player = await prisma.player.findUnique({ where: { id: playerId } });
+  const [fromPick, toPick] = await Promise.all([
+    prisma.pick.findUnique({ where: { id: fromPickId } }),
+    prisma.pick.findUnique({ where: { id: toPickId } }),
+  ]);
+
+  if (!fromPick || !toPick || fromPick.draftId !== draft.id || toPick.draftId !== draft.id) {
+    throw new Error('Picks not part of this draft');
+  }
+
+  // Team-internal only: both picks must belong to the requesting player's team,
+  // never the opponent's
+  if (fromPick.team !== player.team || toPick.team !== player.team) {
+    throw new UnauthorizedHttpException('Can only swap picks within your own team');
+  }
+
+  // Exchange the champions between the two teammates, changing the order in
+  // which the team's picks appear in the draft
+  await prisma.$transaction([
+    prisma.pick.update({
+      where: { id: fromPickId },
+      data: { championId: toPick.championId },
+    }),
+    prisma.pick.update({
+      where: { id: toPickId },
+      data: { championId: fromPick.championId },
+    }),
+  ]);
+
+  // Broadcast the new order to both teams; swaps remain unlimited until the
+  // 60-second timer expires
+  const picks = await prisma.pick.findMany({
+    where: { draftId: draft.id },
+    orderBy: { turn: 'asc' },
   });
-  
-  request.status = 'APPROVED';
+  socket.emitToRoom(`draft:${draft.id}`, 'pick.reordered', picks);
 }
 ```
 
@@ -1049,7 +1048,7 @@ jobs:
 
 ### Should Have (Phase 3)
 - ⚠️ Fearless Mode toggle
-- ⚠️ Champion swap functionality
+- ⚠️ Team-internal pick reordering (Finalization)
 - ⚠️ Public viewing system
 - ⚠️ Timer precision and warnings
 

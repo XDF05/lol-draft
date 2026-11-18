@@ -492,10 +492,10 @@ interface ClientEvents {
   
   'turn.skip': () => Promise<void>;
   
-  // Finalization Phase
-  'swap.request': (targetChampionId: string, proposedSwapWith: string) => void;
-  'swap.approve': (requestId: string) => void;
-  'swap.reject': (requestId: string) => void;
+  // Finalization Phase — team-internal pick swaps only (no opponent approval)
+  // Exchanges the requesting player's pick with a teammate's pick to reorder
+  // the team's picks in the draft. Allowed unlimited times during Finalization.
+  'pick.swap': (fromPickId: string, toPickId: string) => void;
 }
 ```
 
@@ -512,6 +512,7 @@ interface ServerEvents {
   // Selection Feedback
   'ban.confirmed': (bans: Ban[]) => void;
   'pick.confirmed': (picks: Pick[]) => void;
+  'pick.reordered': (picks: Pick[]) => void; // broadcast after each team-internal swap in Finalization
   
   // Timer Events
   'timer.warning': { seconds: number, turn: Turn } => void;

@@ -58,7 +58,7 @@ The draft system orchestrates the complete champion selection and banning proces
 
 **Acceptance Criteria**:
 - Each pick is visible to opponent immediately upon locking/timeout
-- Picks cannot be changed after lock without swap in Finalization
+- Picks cannot be changed after lock without a team-internal swap in Finalization
 - Champion pool updates in real-time
 
 ### R-005: Ban Phase 2 Implementation
@@ -94,16 +94,16 @@ The draft system orchestrates the complete champion selection and banning proces
 
 ### R-007: Finalization Phase Implementation
 **ID**: DS-FR-007  
-**Description**: Finalization Phase is a 60-second grace period for champion swaps before game begins.  
+**Description**: Finalization Phase is a 60-second grace period for team-internal pick swaps before game begins. Swaps never involve the opposing team.  
 **Acceptance Criteria**:
 | Turn | Action | Duration |
 |------|--------|----------|
-| 21 | Champion Swap Grace Period | 60s |
+| 21 | Team-internal pick swap grace period | 60s |
 
 **Acceptance Criteria**:
-- Either player can request swap with opponent's pick
-- Opponent approves or rejects within reason
-- All swap requests visible to both players
+- Any player on a team may swap their locked pick with a teammate's pick to change the order in which the team's picks appear in the draft
+- Swaps are unlimited within the 60-second window; no opponent approval or rejection is involved
+- Both teams see the updated pick order in real time after each swap
 - Draft locks automatically when timer expires
 
 ### R-008: Real-time Synchronization
@@ -120,7 +120,7 @@ The draft system orchestrates the complete champion selection and banning proces
 **Acceptance Criteria**:
 - Champion selection is pending until locked or 30s timeout
 - Player can change selection before lock confirmation
-- Once locked, cannot be changed without swap
+- Once locked, cannot be changed without a team-internal swap in Finalization
 - Auto-lock on 30s countdown completion
 
 ### R-010: Timer Management
@@ -346,7 +346,7 @@ graph TD
 2. Complete all 6 ban turns without timeout
 3. Complete all 6 pick turns with manual locks
 4. Complete Ban P2 (4 turns) and Pick P2 (4 turns)
-5. Execute champion swaps in Finalization
+5. Reorder picks within a team during Finalization (team-internal swaps)
 6. Draft completes successfully
 
 **Expected**: All phases complete within ~14 minutes, final state saved to database

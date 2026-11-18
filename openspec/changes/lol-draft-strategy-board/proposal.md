@@ -62,7 +62,7 @@ Pick Phase 2: 4 turns
   → Blue picks 2 (separate)
   → Red picks 1
 
-Finalization: 1 turn (60s grace period for swaps)
+Finalization: 1 turn (60s grace period for team-internal pick swaps/reordering)
 ```
 
 ### 4. Fearless Drafting Mode
