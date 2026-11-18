@@ -74,6 +74,14 @@ export default function BanPhase() {
   const canSelect = isMyTurn && !locking;
   const available = availableForBan(champions, bans, picks, fearlessMode);
 
+  // Ban Phase 2 (R-005) runs Red-first and allows counter-bans against
+  // Phase 1 picks (unless Fearless mode), tracked as ban #4/#5 per team.
+  const isBanPhase2 = currentTurnInfo?.phase === 'BANNING_P2';
+  const myTeamBanCount = myTeam
+    ? bans.filter((ban) => ban.team === myTeam).length
+    : 0;
+  const nextBanNumber = myTeamBanCount + 1;
+
   async function handleLock() {
     if (!myPending?.championId || locking) {
       return;
@@ -111,6 +119,7 @@ export default function BanPhase() {
         }}
       >
         <strong>
+          {isBanPhase2 ? 'Ban Phase 2 — ' : ''}
           {isMyTurn ? 'Your ban pick' : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
         </strong>
         {remaining !== null && (
@@ -125,6 +134,30 @@ export default function BanPhase() {
           </span>
         )}
       </div>
+
+      {isBanTurn && isBanPhase2 && currentTurnInfo?.expectedTeam === 'RED' && (
+        <p
+          style={{
+            margin: '0.5rem 0 0',
+            padding: '0.5rem 0.75rem',
+            borderRadius: '0.375rem',
+            background: '#fef2f2',
+            color: '#991b1b',
+            fontWeight: 600,
+          }}
+        >
+          Counter-pick opportunity{' '}
+          <span style={{ fontWeight: 400 }}>
+            — Red can answer Blue&apos;s Phase 1 picks with counter-bans.
+          </span>
+        </p>
+      )}
+
+      {isMyTurn && (
+        <p style={{ margin: '0.5rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>
+          This is {myTeam?.toLowerCase()} ban #{nextBanNumber} of 5.
+        </p>
+      )}
 
       {selectedId && (
         <p style={{ margin: '0.5rem 0 0', color: '#1d4ed8' }}>

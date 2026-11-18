@@ -415,13 +415,13 @@ async function handlePickAction(playerId: string, championId: string) {
 **Deliverable**: Complete Ban Phase 2 (counter-bans)
 
 **Tasks**:
-- [ ] Extend ban phase UI for Phase 2
-- [ ] Implement turn sequence: Red first, then Blue alternate
-- [ ] Validate against both Phase 1 bans and picks
-- [ ] Support banning champions picked in Phase 1 (if not Fearless)
-- [ ] Display "Counter-pick opportunity" message to Red Team
-- [ ] Update ban tracking with phase distinction (ban#4, ban#5)
-- [ ] Persist to separate bansPhase2 table collection
+- [x] Extend ban phase UI for Phase 2
+- [x] Implement turn sequence: Red first, then Blue alternate
+- [x] Validate against both Phase 1 bans and picks
+- [x] Support banning champions picked in Phase 1 (if not Fearless)
+- [x] Display "Counter-pick opportunity" message to Red Team
+- [x] Update ban tracking with phase distinction (ban#4, ban#5)
+- [x] Persist to separate bansPhase2 table collection
 
 **Acceptance Criteria**:
 ```typescript

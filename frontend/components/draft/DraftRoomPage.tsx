@@ -375,7 +375,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
                 <li key={`${ban.championId}-${ban.team}-${index}`}>
                   {ban.championId}{' '}
                   <span style={{ color: ban.team === 'BLUE' ? '#1d4ed8' : '#b91c1c' }}>
-                    ({ban.team.toLowerCase()})
+                    ({ban.team.toLowerCase()}, P{ban.phase})
                   </span>
                 </li>
               ))}
