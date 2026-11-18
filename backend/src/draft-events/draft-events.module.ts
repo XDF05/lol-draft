@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { ConnectionHealthService } from './connection-health.service';
 import { DraftEventsGateway } from './draft-events.gateway';
 import { DraftSessionService } from './draft-session.service';
+import { TurnManagerService } from './turn-manager.service';
 import { WsJwtGuard } from './ws-jwt.guard';
 
 /**
@@ -19,7 +20,13 @@ import { WsJwtGuard } from './ws-jwt.guard';
     DraftSessionService,
     ConnectionHealthService,
     WsJwtGuard,
+    TurnManagerService,
   ],
-  exports: [DraftSessionService, ConnectionHealthService, DraftEventsGateway],
+  exports: [
+    DraftSessionService,
+    ConnectionHealthService,
+    DraftEventsGateway,
+    TurnManagerService,
+  ],
 })
 export class DraftEventsModule {}

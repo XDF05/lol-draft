@@ -9,6 +9,7 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
+import BanPhase from './BanPhase';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import { useAuth } from '../../hooks/useAuth';
 import useSocket from '../../hooks/useSocket';
@@ -334,6 +335,10 @@ export default function DraftRoomPage({ code }: { code: string }) {
           <strong>Red:</strong> {view.redPlayer?.username ?? '—'}
           {myTeam === 'RED' ? ' (you)' : ''}
         </div>
+
+        {/* Ban Phase board (T-009): selection grid + countdown during ban
+            turns; pick phases keep the plain summary until T-010. */}
+        {currentTurnInfo?.phase.startsWith('BANNING') && <BanPhase />}
 
         <div style={cardStyle}>
           {currentTurnInfo ? (

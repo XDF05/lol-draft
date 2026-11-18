@@ -68,20 +68,25 @@ export interface BanConfirmedEntry {
   locked: boolean;
 }
 
-/** One confirmed pick (mirrors a `Pick` row, persisted in T-009). */
+/** One confirmed pick (mirrors a `Pick` row; persisted with T-010). */
 export interface PickConfirmedEntry {
   championId: string;
   team: Team;
   locked: boolean;
 }
 
-/** Turn information broadcast on `turn.start` (derived from the turn schedule). */
+/**
+ * Turn information broadcast on `turn.start` (derived from the turn schedule).
+ * `remainingSeconds` is set when a client (re)joins mid-turn so it can tick
+ * from the true countdown instead of restarting at `timerSeconds`.
+ */
 export interface TurnStartPayload {
   turnNumber: number;
   phase: DraftPhase;
   actionType: 'BAN' | 'PICK' | 'FINALIZATION';
   expectedTeam: Team | null;
   timerSeconds: number;
+  remainingSeconds?: number;
 }
 
 export interface BanConfirmedPayload {
@@ -89,6 +94,11 @@ export interface BanConfirmedPayload {
   team: Team;
   phase: 1 | 2;
   bans: BanConfirmedEntry[];
+}
+
+/** Countdown expiry notice (`timer.expired`): what was auto-locked, if any. */
+export interface TimerExpiredPayload {
+  autoLockedChampionId: string | null;
 }
 
 export interface PickConfirmedPayload {

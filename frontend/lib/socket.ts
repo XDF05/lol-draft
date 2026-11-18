@@ -37,6 +37,8 @@ export interface TurnStartPayload {
   actionType: 'BAN' | 'PICK' | 'FINALIZATION';
   expectedTeam: Team | null;
   timerSeconds: number;
+  /** Set when (re)joining mid-turn: true seconds left, for accurate ticking. */
+  remainingSeconds?: number;
 }
 
 export interface BanConfirmedEntry {
@@ -102,13 +104,13 @@ export interface DraftSessionSnapshot {
   updatedAt: string;
 }
 
-/** Emitted by TurnManager (T-011); wired client-side already. */
+/** Emitted by TurnManager at 5s / 3s / 1s of the current turn (T-009). */
 export interface TimerWarningPayload {
   seconds: number;
   turn: TurnStartPayload;
 }
 
-/** Emitted by TurnManager (T-011); wired client-side already. */
+/** Emitted by TurnManager when a turn's countdown expires (T-009). */
 export interface TimerExpiredPayload {
   autoLockedChampionId: string | null;
 }

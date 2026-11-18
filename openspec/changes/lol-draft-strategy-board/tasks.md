@@ -309,16 +309,16 @@ $ curl -X POST http://localhost:4000/draft/create \
 **Deliverable**: Complete Ban Phase 1 with timer logic
 
 **Tasks**:
-- [ ] Create BanPhase component (shared by Blue/Red)
-- [ ] Implement ban selection UI with champion cards
-- [ ] Add champion pool filtering (exclude banned/picked)
-- [ ] Implement lock button functionality
-- [ ] Create server-side turn timer (30-second countdown)
-- [ ] Implement auto-lock on timeout
-- [ ] Emit ban.confirmed event to opponent
-- [ ] Update PostgreSQL bans table
-- [ ] Display warning states at 5s, 3s, 1s
-- [ ] Add visual feedback for selection state
+- [x] Create BanPhase component (shared by Blue/Red)
+- [x] Implement ban selection UI with champion cards
+- [x] Add champion pool filtering (exclude banned/picked)
+- [x] Implement lock button functionality
+- [x] Create server-side turn timer (30-second countdown)
+- [x] Implement auto-lock on timeout
+- [x] Emit ban.confirmed event to opponent
+- [x] Update PostgreSQL bans table
+- [x] Display warning states at 5s, 3s, 1s
+- [x] Add visual feedback for selection state
 
 **Acceptance Criteria**:
 ```typescript

@@ -9,7 +9,7 @@ import { DraftPhase, Team } from './socket-events';
  *   Pick Phase 2 (turns 17-20): R, B, B, R
  *   Finalization (turn 21):    60s swap grace period, no acting team
  *
- * TurnManager (T-011) reuses this table when advancing turns.
+ * TurnManager (T-009) reuses this table when advancing turns.
  */
 export interface TurnInfo {
   turnNumber: number;

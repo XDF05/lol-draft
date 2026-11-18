@@ -64,10 +64,10 @@ interface DraftStoreState {
   pending: Partial<Record<Team, PendingSelection | null>>;
   skips: Record<Team, number>;
   swapRequests: SwapRequestEntry[];
-  /** Explicit phase marker from `phase.*.start` events (TurnManager, T-011). */
+  /** Explicit phase marker from `phase.*.start` events (TurnManager, T-009). */
   phase: DraftPhase | null;
 
-  // --- Timer events (TurnManager, T-011) --------------------------------------
+  // --- Timer events (TurnManager, T-009) --------------------------------------
   timerWarning: TimerWarningPayload | null;
   timerExpired: TimerExpiredPayload | null;
 

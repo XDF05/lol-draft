@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { DraftEventsGateway } from '../draft-events/draft-events.gateway';
 import { DraftSessionService } from '../draft-events/draft-session.service';
+import { TurnManagerService } from '../draft-events/turn-manager.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateDraftDto, DraftSide } from './dto/create-draft.dto';
 import { JoinDraftDto } from './dto/join-draft.dto';
@@ -55,6 +56,7 @@ export class DraftService {
     private readonly prisma: PrismaService,
     private readonly sessions: DraftSessionService,
     private readonly gateway: DraftEventsGateway,
+    private readonly turnManager: TurnManagerService,
   ) {}
 
   /** Create a waiting draft; the creator claims their side immediately. */
@@ -199,6 +201,8 @@ export class DraftService {
       // Push the fresh IN_PROGRESS snapshot to everyone already in the room
       // (the waiting creator), so their UI switches from "waiting" to live.
       await this.gateway.broadcastDraftUpdate(draft.id);
+      // Arm turn 1's 30s countdown and announce turn.start to the room (T-009).
+      await this.turnManager.startTurnTimer(draft.id);
     }
 
     return {

@@ -13,6 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConnectionHealthService } from './connection-health.service';
 import { DraftSessionService } from './draft-session.service';
+import { TurnManagerService } from './turn-manager.service';
 import {
   banPhaseOf,
   initialTurnPayload,
@@ -49,10 +50,10 @@ import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
  * - Connection health monitoring via `ConnectionHealthService`.
  *
  * Scope notes (per the task breakdown):
- * - Ban/pick PostgreSQL persistence and `ban.confirmed` DB sync arrive in
- *   T-009; turn timers, auto-lock and turn advancement arrive in T-011
- *   (TurnManager); actual pick ownership swaps arrive in T-010. This gateway
- *   maintains the Redis live-session state those tasks build upon.
+ * - Ban/pick PostgreSQL persistence and `ban.confirmed` DB sync, the 30s turn
+ *   timer, auto-lock and turn advancement arrive in T-009 (TurnManager);
+ *   actual pick ownership swaps arrive in T-010. This gateway maintains the
+ *   Redis live-session state those tasks build upon.
  *
  * Event validation middleware: the class-level `ValidationPipe` validates
  * every `@MessageBody()` payload against its DTO (class-validator), and
@@ -111,6 +112,7 @@ export class DraftEventsGateway
     private readonly prisma: PrismaService,
     private readonly sessions: DraftSessionService,
     private readonly health: ConnectionHealthService,
+    private readonly turnManager: TurnManagerService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -119,6 +121,8 @@ export class DraftEventsGateway
 
   afterInit(): void {
     this.health.startPeriodicLogging();
+    // TurnManager emits on the gateway's server (avoiding a module cycle).
+    this.turnManager.attachServer(this.server);
     this.logger.log('Draft events gateway initialised');
   }
 
@@ -203,11 +207,22 @@ export class DraftEventsGateway
     this.health.attachToDraft(client.id, draft.id);
     this.trackPresence(draft.id, user.id, client.id);
 
+    // Keep the turn countdown running across reconnections (and restart it
+    // after a server restart, T-009). A no-op for drafts not in progress.
+    await this.turnManager.resumeTurnTimer(draft.id);
+    const remainingSeconds = this.turnManager.remainingSecondsFor(draft.id);
+
     // Current turn snapshot to the whole room: doubles as the reconnection
-    // state refresh for the opponent (R-013).
+    // state refresh for the opponent (R-013). `remainingSeconds` lets a
+    // client resuming mid-turn tick from the true countdown instead of a
+    // fresh 30s.
+    const turnPayload: TurnStartPayload = {
+      ...initialTurnPayload(session.currentTurn),
+      ...(remainingSeconds !== null ? { remainingSeconds } : {}),
+    } as TurnStartPayload;
     this.server
       .to(draftRoom(draft.id))
-      .emit('turn.start', initialTurnPayload(session.currentTurn) as TurnStartPayload);
+      .emit('turn.start', turnPayload as unknown as TurnStartPayload);
     this.server
       .to(draftRoom(draft.id))
       .emit('draft.update', session as unknown as Record<string, unknown>);
@@ -269,43 +284,65 @@ export class DraftEventsGateway
     return { ok: true, championId };
   }
 
-  /** Lock the pending ban: persists to session state and broadcasts `ban.confirmed`. */
+  /**
+   * Lock the pending ban: persists to session state + PostgreSQL, broadcasts
+   * `ban.confirmed`, then hands the turn over to the TurnManager (T-009).
+   */
   @SubscribeMessage('ban.lock')
   async handleBanLock(@ConnectedSocket() client: Socket): Promise<{
     ok: true;
     championId: string;
   }> {
-    const { draftId, team } = await this.requireDraftContext(client);
-    await this.requireTurn(
-      await this.sessions.getOrCreate(draftId),
-      team,
-      'BAN',
-    );
+    const { draftId, session, team } = await this.requireDraftContext(client);
+    const turn = this.requireTurn(session, team, 'BAN');
 
-    const { state, championId } = await this.sessions.confirmBan(draftId, team);
-    if (!championId) {
+    // A lock without a pending selection must not consume the turn: leave
+    // the claim untouched so the running timer still resolves the turn.
+    if (!session.pending[team]?.championId) {
       throw new WsException('No pending ban selection to lock');
     }
 
-    const phase = banPhaseOf(turnInfo(state.currentTurn).phase);
-    const payload: BanConfirmedPayload = {
-      championId,
-      team,
-      phase,
-      bans: state.bans,
-    };
-    this.server
-      .to(draftRoom(draftId))
-      .emit('ban.confirmed', payload as unknown as Record<string, unknown>);
-    this.server
-      .to(draftRoom(draftId))
-      .emit('draft.update', state as unknown as Record<string, unknown>);
+    // Exactly one of {this lock, the timer expiry} resolves the turn; a
+    // lock racing the deadline is rejected here.
+    if (!this.turnManager.claimTurnAction(draftId, turn.turnNumber)) {
+      throw new WsException('Turn already resolved');
+    }
 
-    this.logger.log(
-      `ban.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
-    );
-    // Turn advancement / next `turn.start` is emitted by TurnManager (T-011).
-    return { ok: true, championId };
+    try {
+      const { state, championId } = await this.sessions.confirmBan(draftId, team);
+      if (!championId) {
+        this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
+        throw new WsException('No pending ban selection to lock');
+      }
+
+      const phase = banPhaseOf(turnInfo(state.currentTurn).phase);
+      await this.turnManager.persistBanRow(draftId, championId, team, phase);
+
+      const payload: BanConfirmedPayload = {
+        championId,
+        team,
+        phase,
+        bans: state.bans,
+      };
+      this.server
+        .to(draftRoom(draftId))
+        .emit('ban.confirmed', payload as unknown as Record<string, unknown>);
+      this.server
+        .to(draftRoom(draftId))
+        .emit('draft.update', state as unknown as Record<string, unknown>);
+
+      this.logger.log(
+        `ban.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
+      );
+      // Stop the countdown and announce the next turn (turn.end/turn.start).
+      await this.turnManager.handleActionCompleted(draftId);
+      return { ok: true, championId };
+    } catch (err) {
+      // The claimed action itself failed (e.g. the Ban row could not be
+      // persisted): free the turn so the still-running timer can resolve it.
+      this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
+      throw err;
+    }
   }
 
   /** Voluntary skip of the acting team's ban turn. */
@@ -468,10 +505,12 @@ export class DraftEventsGateway
    * view without polling.
    */
   async broadcastDraftUpdate(draftId: number): Promise<void> {
-    const session = await this.sessions.getOrCreate(draftId);
-    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
-    if (draft) {
-      this.applyRecordStatus(session, draft.status, draft.fearlessMode);
+    // syncWithRecord applies the record's status/fearless and persists them,
+    // so a session created while the draft was waiting is upgraded to
+    // IN_PROGRESS here (the timer relies on the persisted status).
+    const session = await this.sessions.syncWithRecord(draftId);
+    if (!session) {
+      return;
     }
     this.server
       .to(draftRoom(draftId))
@@ -488,15 +527,28 @@ export class DraftEventsGateway
     action: 'BAN' | 'PICK',
   ): Promise<{ ok: true }> {
     const { draftId, session, team } = await this.requireDraftContext(client);
-    this.requireTurn(session, team, action);
+    const turn = this.requireTurn(session, team, action);
     void data;
 
-    const state = await this.sessions.recordSkip(draftId, team);
-    this.server
-      .to(draftRoom(draftId))
-      .emit('draft.update', state as unknown as Record<string, unknown>);
-    this.logger.log(`${action.toLowerCase()}.skip draft=${draftId} team=${team}`);
-    return { ok: true };
+    // A skip resolves the turn just like a lock or the timer expiry would.
+    if (!this.turnManager.claimTurnAction(draftId, turn.turnNumber)) {
+      throw new WsException('Turn already resolved');
+    }
+
+    try {
+      const state = await this.sessions.recordSkip(draftId, team);
+      this.server
+        .to(draftRoom(draftId))
+        .emit('draft.update', state as unknown as Record<string, unknown>);
+      this.logger.log(
+        `${action.toLowerCase()}.skip draft=${draftId} team=${team} turn=${turn.turnNumber}`,
+      );
+      await this.turnManager.handleActionCompleted(draftId);
+      return { ok: true };
+    } catch (err) {
+      this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
+      throw err;
+    }
   }
 
   private async resolveSwap(
@@ -796,6 +848,8 @@ export class DraftEventsGateway
     }
 
     await this.sessions.deleteSession(draftId);
+    // A dead draft's turn countdown must not keep firing (T-009).
+    this.turnManager.clearTimers(draftId);
     const payload: DraftExpiredPayload = { reason };
     this.server
       .to(draftRoom(draftId))
