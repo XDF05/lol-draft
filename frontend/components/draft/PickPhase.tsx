@@ -148,7 +148,19 @@ export default function PickPhase() {
     onCancel: () => void selectPick(null),
     enabled: canSelect,
   });
-  const available = availableForPick(champions, bans, picks);
+  const bannedIds = new Set(bans.map((ban) => ban.championId));
+  const pickedIds = new Set(picks.map((pick) => pick.championId));
+  const championStatus = new Map(
+    champions.map((champion) => {
+      if (bannedIds.has(champion.id)) {
+        return [champion.id, 'banned'] as const;
+      }
+      if (pickedIds.has(champion.id)) {
+        return [champion.id, 'picked'] as const;
+      }
+      return [champion.id, 'available'] as const;
+    }),
+  );
   const totals = pickCounts(picks);
   const isPickPhase2 = currentTurnInfo?.phase === 'PICKING_P2';
   const advantage = currentTurnInfo
@@ -241,22 +253,32 @@ export default function PickPhase() {
         <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
           Loading champion pool…
         </p>
-      ) : available.length === 0 ? (
-        <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
-          No champions left to pick.
-        </p>
       ) : (
-        <div style={championGridStyle(isMobile)}>
-          {available.map((champion) => (
-            <ChampionCard
-              key={champion.id}
-              champion={champion}
-              selected={selectedId === champion.id}
-              disabled={!canSelect}
-              accent={accent}
-              onToggle={() => toggleSelection(champion.id)}
-            />
-          ))}
+        <div
+          style={{
+            ...championGridStyle(isMobile),
+            maxHeight: 260,
+            overflowY: 'auto',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.375rem',
+            padding: '0.5rem',
+            background: '#fafbfc',
+          }}
+        >
+          {champions.map((champion) => {
+            const status = championStatus.get(champion.id) ?? 'available';
+            return (
+              <ChampionCard
+                key={champion.id}
+                champion={champion}
+                status={status}
+                selected={selectedId === champion.id}
+                disabled={!canSelect}
+                accent={accent}
+                onToggle={() => toggleSelection(champion.id)}
+              />
+            );
+          })}
         </div>
       )}
 

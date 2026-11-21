@@ -4,6 +4,8 @@ import type { CSSProperties } from 'react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import type { Champion } from '../../lib/types';
 
+export type ChampionCardStatus = 'available' | 'picked' | 'banned';
+
 /** Responsive champion grid shared by the ban and pick boards. */
 export function championGridStyle(isMobile = false): CSSProperties {
   return {
@@ -40,6 +42,7 @@ export function ChampionCard({
   champion,
   selected,
   disabled,
+  status = 'available',
   accent = '#1d4ed8',
   onToggle,
   loading = false,
@@ -47,6 +50,8 @@ export function ChampionCard({
   champion: Champion;
   selected: boolean;
   disabled: boolean;
+  /** Champion availability state for styling (greyed / crossed out). */
+  status?: ChampionCardStatus;
   /** Selection accent colour (team-tinted on the pick board). */
   accent?: string;
   onToggle: () => void;
@@ -54,15 +59,29 @@ export function ChampionCard({
   loading?: boolean;
 }) {
   const isMobile = useIsMobile();
+  const isUnavailable = status === 'picked' || status === 'banned';
+  const cardDisabled = disabled || isUnavailable;
   const cardStyle: CSSProperties = {
-    border: selected ? `2px solid ${accent}` : '1px solid #d1d5db',
+    border: selected
+      ? `2px solid ${accent}`
+      : isUnavailable
+        ? '1px solid #cbd5e1'
+        : '1px solid #d1d5db',
     borderRadius: '0.375rem',
     padding: isMobile ? '0.25rem' : '0.375rem',
     textAlign: 'center',
-    background: selected ? '#eff6ff' : '#fff',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.45 : 1,
+    background:
+      selected
+        ? '#eff6ff'
+        : isUnavailable
+          ? '#f1f5f9'
+          : '#fff',
+    cursor: cardDisabled ? 'not-allowed' : 'pointer',
+    opacity: cardDisabled ? 0.5 : 1,
     fontSize: isMobile ? '0.6875rem' : '0.75rem',
+    textDecoration:
+      status === 'banned' ? 'line-through' : undefined,
+    textDecorationColor: status === 'banned' ? '#ef4444' : undefined,
   };
 
   if (loading) {
@@ -101,13 +120,16 @@ export function ChampionCard({
   }
 
   const iconSize = isMobile ? 36 : 48;
+  const statusLabel =
+    status === 'banned' ? 'Banned' : status === 'picked' ? 'Picked' : null;
 
   return (
     <button
       type="button"
       style={cardStyle}
-      disabled={disabled}
+      disabled={cardDisabled}
       aria-pressed={selected}
+      aria-disabled={cardDisabled}
       onClick={onToggle}
     >
       <img
@@ -123,6 +145,19 @@ export function ChampionCard({
       {selected && (
         <span style={{ display: 'block', color: accent, fontWeight: 600 }}>
           Selected
+        </span>
+      )}
+      {statusLabel && (
+        <span
+          style={{
+            display: 'block',
+            marginTop: '0.125rem',
+            fontSize: '0.625rem',
+            fontWeight: 600,
+            color: status === 'banned' ? '#b91c1c' : '#64748b',
+          }}
+        >
+          {statusLabel}
         </span>
       )}
     </button>

@@ -61,7 +61,6 @@ export default function BanPhase() {
   const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
   const bans = useDraftStore((s) => s.bans);
   const picks = useDraftStore((s) => s.picks);
-  const fearlessMode = useDraftStore((s) => s.fearlessMode);
   const pending = useDraftStore((s) => s.pending);
   const selectBan = useDraftStore((s) => s.selectBan);
   const optimisticLockBan = useDraftStore((s) => s.optimisticLockBan);
@@ -81,7 +80,21 @@ export default function BanPhase() {
     onCancel: () => void selectBan(null),
     enabled: canSelect,
   });
-  const available = availableForBan(champions, bans, picks, fearlessMode);
+
+  const bannedIds = new Set(bans.map((ban) => ban.championId));
+  const pickedIds = new Set(picks.map((pick) => pick.championId));
+  // Picked champions are never bannable in any phase (fearless or not).
+  const championStatus = new Map(
+    champions.map((champion) => {
+      if (bannedIds.has(champion.id)) {
+        return [champion.id, 'banned'] as const;
+      }
+      if (pickedIds.has(champion.id)) {
+        return [champion.id, 'banned'] as const;
+      }
+      return [champion.id, 'available'] as const;
+    }),
+  );
   const isMobile = useIsMobile();
 
   // Ban Phase 2 (R-005) runs Red-first and allows counter-bans against
@@ -179,21 +192,31 @@ export default function BanPhase() {
         <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
           Loading champion pool…
         </p>
-      ) : available.length === 0 ? (
-        <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
-          No champions left to ban.
-        </p>
       ) : (
-        <div style={championGridStyle(isMobile)}>
-          {available.map((champion) => (
-            <ChampionCard
-              key={champion.id}
-              champion={champion}
-              selected={selectedId === champion.id}
-              disabled={!canSelect}
-              onToggle={() => toggleSelection(champion.id)}
-            />
-          ))}
+        <div
+          style={{
+            ...championGridStyle(isMobile),
+            maxHeight: 260,
+            overflowY: 'auto',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.375rem',
+            padding: '0.5rem',
+            background: '#fafbfc',
+          }}
+        >
+          {champions.map((champion) => {
+            const status = championStatus.get(champion.id) ?? 'available';
+            return (
+              <ChampionCard
+                key={champion.id}
+                champion={champion}
+                status={status}
+                selected={selectedId === champion.id}
+                disabled={!canSelect}
+                onToggle={() => toggleSelection(champion.id)}
+              />
+            );
+          })}
         </div>
       )}
 
