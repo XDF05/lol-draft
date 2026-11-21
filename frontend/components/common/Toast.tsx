@@ -75,43 +75,6 @@ export function useToast() {
   return ctx;
 }
 
-const containerStyle: React.CSSProperties = {
-  position: 'fixed',
-  top: '1rem',
-  right: '1rem',
-  zIndex: 9999,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
-  pointerEvents: 'none',
-};
-
-const toastStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: '0.75rem',
-  padding: '0.75rem 1rem',
-  borderRadius: '0.5rem',
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-  minWidth: '260px',
-  pointerEvents: 'auto',
-  fontSize: '0.875rem',
-  lineHeight: '1.4',
-  background: '#ffffff',
-  border: '1px solid #e2e8f0',
-};
-
-const titleStyle: React.CSSProperties = {
-  fontWeight: 600,
-  color: '#0f172a',
-  margin: 0,
-};
-
-const descriptionStyle: React.CSSProperties = {
-  fontSize: '0.8125rem',
-  color: '#475569',
-  margin: '0.25rem 0 0',
-};
 
 function ToastContainer({
   toasts,
@@ -121,11 +84,11 @@ function ToastContainer({
   onDismiss: (id: string) => void;
 }) {
   return (
-    <div style={containerStyle}>
+    <div className="toast-container">
       {toasts.map((t) => (
-        <div key={t.id} style={toastStyle}>
-          <p style={titleStyle}>{t.title}</p>
-          {t.description && <p style={descriptionStyle}>{t.description}</p>}
+        <div key={t.id} className="toast">
+          <p className="toast-title">{t.title}</p>
+          {t.description && <p className="toast-description">{t.description}</p>}
         </div>
       ))}
     </div>

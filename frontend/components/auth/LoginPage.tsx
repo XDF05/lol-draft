@@ -1,19 +1,10 @@
 'use client';
 
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { useAuth } from '../../hooks/useAuth';
-
-const inputStyle: CSSProperties = {
-  display: 'block',
-  width: '100%',
-  padding: '0.5rem',
-  marginTop: '0.25rem',
-  marginBottom: '1rem',
-  fontSize: '1rem',
-};
 
 function extractErrorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -53,36 +44,36 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ maxWidth: '20rem', margin: '3rem auto', padding: '1.5rem' }}>
-      <h1 style={{ textAlign: 'center' }}>Log in</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Username
-          <input
-            style={inputStyle}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-          />
-        </label>
-        <label>
-          Password
-          <input
-            style={inputStyle}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
-        </label>
-        {error && <p style={{ color: '#b91c1c' }}>{error}</p>}
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Logging in…' : 'Log in'}
-        </button>
-      </form>
-      <p style={{ textAlign: 'center' }}>
-        New here? <Link href="/register">Create an account</Link>
-      </p>
+    <main className="centered-page">
+      <div className="auth-card">
+        <h1>Log in</h1>
+        <form onSubmit={handleSubmit}>
+          <label>
+            Username
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </label>
+          {error && <p className="error-text">{error}</p>}
+          <button className="primary-button" type="submit" disabled={submitting}>
+            {submitting ? 'Logging in…' : 'Log in'}
+          </button>
+        </form>
+        <p className="muted" style={{ textAlign: 'center', marginBottom: 0 }}>
+          New here? <Link href="/register">Create an account</Link>
+        </p>
+      </div>
     </main>
   );
 }

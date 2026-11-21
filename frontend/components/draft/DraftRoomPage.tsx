@@ -10,16 +10,13 @@ import {
 import Link from 'next/link';
 import { extractDraftError } from '../../lib/errors';
 import { ErrorBoundary } from '../../components/common/ErrorBoundary';
-import BanPhase from './BanPhase';
 import FearlessToggle, { FearlessBanner } from './FearlessToggle';
-import FinalizationPhase from './FinalizationPhase';
-import PickPhase, { pickCounts } from './PickPhase';
+import DraftBoard from './DraftBoard';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import DraftProgressBar from './DraftProgressBar';
 import { useAuth } from '../../hooks/useAuth';
 import { useChampionData } from '../../hooks/useChampionData';
 import useSocket from '../../hooks/useSocket';
-import { useIsMobile } from '../../lib/useMediaQuery';
 import { useDraftStore } from '../../store/draftStore';
 import type { PickConfirmedEntry, Team } from '../../lib/socket';
 import {
@@ -47,19 +44,11 @@ import {
 const POLL_INTERVAL_MS = 4000;
 
 const cardStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
+  border: '1px solid var(--border)',
+  borderRadius: '0.8rem',
   padding: '1rem',
   marginBottom: '1rem',
-  background: '#fff',
-};
-
-const codeStyle: CSSProperties = {
-  fontSize: '2rem',
-  letterSpacing: '0.35em',
-  fontWeight: 700,
-  textAlign: 'center',
-  margin: '0.5rem 0',
+  background: 'var(--surface)',
 };
 
 function freeSideOf(view: DraftView): DraftSide | null {
@@ -132,12 +121,12 @@ function DraftResults({
     <div style={cardStyle}>
       <p style={{ fontWeight: 600, marginTop: 0 }}>Final picks</p>
       {completedAt && (
-        <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+        <p className="muted" style={{ fontSize: '0.85rem' }}>
           Completed {new Date(completedAt).toLocaleString()}
         </p>
       )}
       {picks.length === 0 ? (
-        <p style={{ color: '#6b7280' }}>Syncing final results…</p>
+        <p className="muted">Syncing final results…</p>
       ) : (
         <div style={{ display: 'flex', gap: '1.5rem' }}>
           {columns.map(({ team, label, color }) => {
@@ -170,9 +159,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
   const myTeam = useDraftStore((s) => s.myTeam);
   const storeFearlessMode = useDraftStore((s) => s.fearlessMode);
   const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
-  const bans = useDraftStore((s) => s.bans);
   const picks = useDraftStore((s) => s.picks);
-  const pickTotals = pickCounts(picks);
   const draftExpired = useDraftStore((s) => s.draftExpired);
   const completedAt = useDraftStore((s) => s.completedAt);
   const lastError = useDraftStore((s) => s.lastError);
@@ -185,9 +172,6 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   // Guards the auto-join effect against re-entry across poll refreshes.
   const joiningRef = useRef(false);
-  const isMobile = useIsMobile();
-  const pagePadding = isMobile ? '1rem' : '1.5rem';
-
   const refresh = useCallback(async () => {
     try {
       const next = await fetchDraftByCode(code);
@@ -263,9 +247,9 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (loadError) {
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <main className="page-shell narrow">
         <h1>Draft room</h1>
-        <p style={{ color: '#b91c1c' }}>{loadError}</p>
+        <p className="error-text">{loadError}</p>
         <Link href="/draft/new">Create a new draft</Link>
       </main>
     );
@@ -273,7 +257,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (!view) {
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: pagePadding }}>
+      <main className="page-shell narrow">
         <p>Loading draft…</p>
       </main>
     );
@@ -286,29 +270,18 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (status === 'EXPIRED') {
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <main className="page-shell narrow">
         <h1>Draft room</h1>
         <div style={cardStyle}>
           <p style={{ fontWeight: 600, marginTop: 0 }}>
             This draft has expired.
           </p>
-          <p style={{ color: '#4b5563' }}>
+          <p className="muted">
             {draftExpired ??
               'A player was disconnected for too long, so the draft expired.'}
           </p>
           <p style={{ marginTop: '1rem' }}>
-            <Link
-              href="/draft/new"
-              style={{
-                display: 'inline-block',
-                background: '#1d4ed8',
-                color: '#fff',
-                padding: '0.5rem 1rem',
-                borderRadius: '0.375rem',
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
+            <Link href="/draft/new" className="primary-button">
               Create a new draft
             </Link>
           </p>
@@ -319,11 +292,11 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (status === 'COMPLETE') {
     return (
-      <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: pagePadding }}>
+      <main className="page-shell narrow">
         <h1>Draft room</h1>
         <div style={cardStyle}>
           <p style={{ fontWeight: 600, margin: 0 }}>Draft complete.</p>
-          <p style={{ color: '#4b5563' }}>
+          <p className="muted">
             The Finalization timer expired and the final pick order is locked.
           </p>
         </div>
@@ -336,9 +309,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
   if (status === 'WAITING_FOR_PLAYERS') {
     if (!isParticipant) {
       return (
-        <main
-          style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}
-        >
+        <main className="page-shell narrow">
           <h1>Draft room</h1>
           {fearlessActive && <FearlessBanner />}
           <div style={cardStyle}>
@@ -346,13 +317,13 @@ export default function DraftRoomPage({ code }: { code: string }) {
               <p>Joining draft {view.code}…</p>
             ) : joinError ? (
               <>
-                <p style={{ color: '#b91c1c' }}>{joinError}</p>
+                <p className="error-text">{joinError}</p>
                 <button type="button" onClick={() => void refresh()}>
                   Try again
                 </button>
               </>
             ) : (
-              <p style={{ color: '#b91c1c' }}>
+              <p className="error-text">
                 This draft already has two players.
               </p>
             )}
@@ -362,7 +333,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
     }
 
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: pagePadding }}>
+      <main className="page-shell narrow">
         <div
           style={{
             display: 'flex',
@@ -386,7 +357,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
             <strong>/draft/{view.code}</strong> and the draft starts
             automatically.
           </p>
-          <p style={codeStyle}>{view.code}</p>
+          <p className="code-display">{view.code}</p>
           <p style={{ textAlign: 'center' }}>
             <CopyCodeButton code={view.code} />
           </p>
@@ -406,7 +377,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
             </strong>{' '}
             side.
           </p>
-          <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+          <p className="muted" style={{ fontSize: '0.85rem' }}>
             Unjoined drafts expire after 5 minutes.
           </p>
         </div>
@@ -417,9 +388,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
   if (status === 'IN_PROGRESS') {
     if (!isParticipant) {
       return (
-        <main
-          style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}
-        >
+        <main className="page-shell narrow">
           <h1>Draft room</h1>
           <div style={cardStyle}>
             <p>You are not a participant of this draft.</p>
@@ -430,120 +399,70 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
     return (
       <ErrorBoundary>
-        <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: pagePadding }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '0.75rem',
-          }}
-        >
-          <h1 style={{ margin: 0 }}>Draft {view.code}</h1>
-          <ConnectionIndicator />
-        </div>
-        <DraftProgressBar />
-        {lastError && <p style={{ color: '#b91c1c' }}>{lastError}</p>}
-        {fearlessActive && <FearlessBanner />}
+        <main className="page-shell draft-page">
+          <header className="draft-page-header">
+            <div>
+              <h1>Draft {view.code}</h1>
+              <p>Live 1v1 champion draft</p>
+            </div>
+            <ConnectionIndicator />
+          </header>
 
-        <div style={cardStyle}>
-          <strong>Blue:</strong> {view.bluePlayer?.username ?? '—'}
-          {myTeam === 'BLUE' ? ' (you)' : ''}
-          <br />
-          <strong>Red:</strong> {view.redPlayer?.username ?? '—'}
-          {myTeam === 'RED' ? ' (you)' : ''}
-          <p
-            style={{
-              color: '#6b7280',
-              fontSize: '0.85rem',
-              margin: '0.5rem 0 0',
-            }}
-          >
-            Spectator link:{' '}
-            <Link href={spectatorPath(view.code)}>
-              {spectatorPath(view.code)}
-            </Link>
-          </p>
-        </div>
+          <DraftProgressBar />
+          {lastError && <p className="error-text">{lastError}</p>}
+          {fearlessActive && <FearlessBanner />}
 
-        {/* Selection boards: ban grid + countdown (T-009), pick grid with
-            advantage indicators (T-010), and the Finalization swap board
-            (T-014). */}
-        {currentTurnInfo?.phase.startsWith('BANNING') && <BanPhase />}
-        {currentTurnInfo?.phase.startsWith('PICKING') && <PickPhase />}
-        {currentTurnInfo?.phase === 'FINALIZATION' && <FinalizationPhase />}
+          <div className="draft-player-strip">
+            <span className="blue">
+              <strong>Blue:</strong> {view.bluePlayer?.username ?? '—'}
+              {myTeam === 'BLUE' ? ' (you)' : ''}
+            </span>
+            <span className="red">
+              <strong>Red:</strong> {view.redPlayer?.username ?? '—'}
+              {myTeam === 'RED' ? ' (you)' : ''}
+            </span>
+            <span>
+              Spectator link:{' '}
+              <Link href={spectatorPath(view.code)}>
+                {spectatorPath(view.code)}
+              </Link>
+            </span>
+          </div>
 
-        <div style={cardStyle}>
-          {currentTurnInfo ? (
-            <>
-              <p style={{ margin: 0, fontWeight: 600 }}>
-                Turn {currentTurnInfo.turnNumber} —{' '}
-                {PHASE_LABELS[currentTurnInfo.phase] ?? currentTurnInfo.phase} (
-                {currentTurnInfo.actionType.toLowerCase()})
-              </p>
-              <p style={{ margin: '0.25rem 0 0' }}>
-                {currentTurnInfo.expectedTeam
-                  ? currentTurnInfo.expectedTeam === myTeam
-                    ? 'Your turn.'
-                    : `Waiting for ${currentTurnInfo.expectedTeam.toLowerCase()}…`
-                  : 'Finalization grace period.'}
-              </p>
-            </>
-          ) : (
-            <p>Syncing draft state…</p>
-          )}
-        </div>
+          <DraftBoard
+            bluePlayer={view.bluePlayer?.username}
+            redPlayer={view.redPlayer?.username}
+            myTeam={myTeam}
+          />
 
-        <div style={cardStyle}>
-          <strong>Bans</strong>
-          {bans.length === 0 ? (
-            <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
-              No bans yet.
-            </p>
-          ) : (
-            <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.25rem' }}>
-              {bans.map((ban, index) => (
-                <li key={`${ban.championId}-${ban.team}-${index}`}>
-                  {ban.championId}{' '}
-                  <span style={{ color: ban.team === 'BLUE' ? '#1d4ed8' : '#b91c1c' }}>
-                    ({ban.team.toLowerCase()}, P{ban.phase})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div style={cardStyle}>
-          <strong>Picks</strong>{' '}
-          <span style={{ color: '#4b5563', fontWeight: 400 }}>
-            (Blue {pickTotals.BLUE}/5 · Red {pickTotals.RED}/5)
-          </span>
-          {picks.length === 0 ? (
-            <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
-              No picks yet.
-            </p>
-          ) : (
-            <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.25rem' }}>
-              {picks.map((pick, index) => (
-                <li key={`${pick.championId}-${pick.team}-${index}`}>
-                  {pick.championId}{' '}
-                  <span style={{ color: pick.team === 'BLUE' ? '#1d4ed8' : '#b91c1c' }}>
-                    ({pick.team.toLowerCase()})
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </main>
+          <div className="surface-card draft-turn-summary">
+            {currentTurnInfo ? (
+              <>
+                <p style={{ margin: 0, fontWeight: 700 }}>
+                  Turn {currentTurnInfo.turnNumber} —{' '}
+                  {PHASE_LABELS[currentTurnInfo.phase] ?? currentTurnInfo.phase} (
+                  {currentTurnInfo.actionType.toLowerCase()})
+                </p>
+                <p className="muted">
+                  {currentTurnInfo.expectedTeam
+                    ? currentTurnInfo.expectedTeam === myTeam
+                      ? 'Your turn.'
+                      : `Waiting for ${currentTurnInfo.expectedTeam.toLowerCase()}…`
+                    : 'Finalization grace period.'}
+                </p>
+              </>
+            ) : (
+              <p>Syncing draft state…</p>
+            )}
+          </div>
+        </main>
       </ErrorBoundary>
     );
   }
 
   // Unknown status — show what we know.
   return (
-    <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
+    <main className="page-shell narrow">
       <h1>Draft room</h1>
       <div style={cardStyle}>
         <p>

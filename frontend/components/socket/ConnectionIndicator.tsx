@@ -12,12 +12,12 @@ import type { ConnectionState } from '../../store/draftStore';
  */
 
 const STYLES: Record<ConnectionState, { text: string; color: string; dot: string }> = {
-  idle: { text: 'Offline', color: '#6b7280', dot: '#9ca3af' },
-  connecting: { text: 'Connecting…', color: '#b45309', dot: '#f59e0b' },
-  connected: { text: 'Live', color: '#15803d', dot: '#22c55e' },
-  reconnecting: { text: 'Reconnecting…', color: '#b45309', dot: '#f59e0b' },
-  disconnected: { text: 'Disconnected — reconnecting', color: '#b45309', dot: '#f59e0b' },
-  error: { text: 'Connection error', color: '#b91c1c', dot: '#ef4444' },
+  idle: { text: 'Offline', color: 'var(--text-muted)', dot: '#9ca3af' },
+  connecting: { text: 'Connecting…', color: 'var(--warning)', dot: '#f59e0b' },
+  connected: { text: 'Live', color: 'var(--success)', dot: '#22c55e' },
+  reconnecting: { text: 'Reconnecting…', color: 'var(--warning)', dot: '#f59e0b' },
+  disconnected: { text: 'Disconnected — reconnecting', color: 'var(--warning)', dot: '#f59e0b' },
+  error: { text: 'Connection error', color: 'var(--danger)', dot: '#ef4444' },
 };
 
 export default function ConnectionIndicator({
@@ -39,27 +39,12 @@ export default function ConnectionIndicator({
   return (
     <div
       aria-live="polite"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.25rem 0.75rem',
-        borderRadius: 9999,
-        border: `1px solid ${style.color}`,
-        color: style.color,
-        fontSize: '0.8rem',
-        fontWeight: 600,
-        background: 'rgba(0,0,0,0.03)',
-      }}
+      className="connection-pill"
+      style={{ color: style.color }}
     >
       <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          background: style.dot,
-          display: 'inline-block',
-        }}
+        className="connection-dot"
+        style={{ background: style.dot }}
       />
       {style.text}
       {connectionState === 'connected' && latencyMs !== null && (

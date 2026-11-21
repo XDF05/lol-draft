@@ -31,8 +31,8 @@ const containerStyle: CSSProperties = {
 
 const spinnerStyle: CSSProperties = {
   border: 'solid',
-  borderColor: '#e2e8f0',
-  borderTopColor: '#1d4ed8',
+  borderColor: 'var(--border)',
+  borderTopColor: 'var(--primary)',
   borderRadius: '50%',
   animation: 'spin 0.8s linear infinite',
   boxSizing: 'border-box',

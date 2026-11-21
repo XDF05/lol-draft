@@ -31,17 +31,17 @@ import TimerDisplay from './TimerDisplay';
  */
 
 const mainStyle: CSSProperties = {
-  maxWidth: '40rem',
-  margin: '3rem auto',
-  padding: '1.5rem',
+  maxWidth: '64rem',
+  margin: '0 auto',
+  padding: '2rem 1rem 3rem',
 };
 
 const cardStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
+  border: '1px solid var(--border)',
+  borderRadius: '0.8rem',
   padding: '1rem',
   marginBottom: '1rem',
-  background: '#fff',
+  background: 'var(--surface)',
 };
 
 const PHASE_LABELS: Record<string, string> = {
@@ -85,7 +85,7 @@ function TeamPicks({
               {pick ? (
                 championName(pick.championId, names)
               ) : (
-                <span style={{ color: '#9ca3af' }}>—</span>
+                <span style={{ color: 'var(--text-muted)' }}>—</span>
               )}
             </li>
           );
@@ -104,7 +104,9 @@ function BansList({
 }) {
   if (bans.length === 0) {
     return (
-      <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>No bans yet.</p>
+      <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted)' }}>
+        No bans yet.
+      </p>
     );
   }
   return (
@@ -171,7 +173,7 @@ export default function SpectatorView({ code }: { code: string }) {
     >
       <div>
         <h1 style={{ margin: 0 }}>Draft {code}</h1>
-        <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
+        <p className="muted" style={{ margin: '0.25rem 0 0' }}>
           Spectator view — read-only
         </p>
       </div>
@@ -190,7 +192,7 @@ export default function SpectatorView({ code }: { code: string }) {
           <p style={{ fontWeight: 600, marginTop: 0 }}>
             Spectator connection ended.
           </p>
-          <p style={{ color: '#4b5563' }}>
+          <p className="muted">
             {live.error ??
               `The viewer stayed offline for more than ${SPECTATOR_RECONNECT_GRACE_SECONDS} seconds.`}
           </p>
@@ -208,7 +210,7 @@ export default function SpectatorView({ code }: { code: string }) {
       <main style={mainStyle}>
         {header}
         <div style={cardStyle}>
-          <p style={{ color: '#b91c1c', marginTop: 0 }}>
+          <p className="error-text" style={{ marginTop: 0 }}>
             {loadError ?? live.error}
           </p>
           <button type="button" onClick={live.retry}>
@@ -237,7 +239,7 @@ export default function SpectatorView({ code }: { code: string }) {
           <p style={{ fontWeight: 600, marginTop: 0 }}>
             This draft has expired.
           </p>
-          <p style={{ color: '#4b5563' }}>
+          <p className="muted">
             {live.draftExpired ??
               'A player was disconnected for too long, so the draft expired.'}
           </p>
@@ -253,11 +255,11 @@ export default function SpectatorView({ code }: { code: string }) {
         {header}
         <div style={cardStyle}>
           <p style={{ fontWeight: 600, margin: 0 }}>Draft Complete</p>
-          <p style={{ color: '#4b5563', marginBottom: 0 }}>
+          <p className="muted" style={{ marginBottom: 0 }}>
             The final pick order is locked.
           </p>
           {completedAt && (
-            <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: 0 }}>
+            <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 0 }}>
               Completed {new Date(completedAt).toLocaleString()}
             </p>
           )}
@@ -297,7 +299,7 @@ export default function SpectatorView({ code }: { code: string }) {
           <p style={{ margin: '0.25rem 0' }}>
             <strong>Red:</strong> {snapshot?.redPlayer?.username ?? '—'}
           </p>
-          <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: 0 }}>
+          <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 0 }}>
             The draft starts automatically when both sides are filled.
           </p>
         </div>
@@ -313,8 +315,8 @@ export default function SpectatorView({ code }: { code: string }) {
         <div
           style={{
             ...cardStyle,
-            borderColor: '#f59e0b',
-            color: '#b45309',
+            borderColor: 'var(--warning)',
+            color: 'var(--warning)',
           }}
         >
           Connection lost — reconnecting… {live.graceSeconds}s of{' '}
@@ -337,8 +339,8 @@ export default function SpectatorView({ code }: { code: string }) {
             margin: '0 0 1rem',
             padding: '0.5rem 0.75rem',
             borderRadius: '0.375rem',
-            background: '#fff7ed',
-            color: '#9a3412',
+            background: 'var(--warning-soft)',
+            color: 'var(--warning)',
             fontWeight: 600,
           }}
         >

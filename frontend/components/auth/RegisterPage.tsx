@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
@@ -9,15 +9,6 @@ import { useAuth } from '../../hooks/useAuth';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]+$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const inputStyle: CSSProperties = {
-  display: 'block',
-  width: '100%',
-  padding: '0.5rem',
-  marginTop: '0.25rem',
-  marginBottom: '1rem',
-  fontSize: '1rem',
-};
 
 function extractErrorMessage(err: unknown): string {
   if (isAxiosError(err)) {
@@ -86,56 +77,54 @@ export default function RegisterPage() {
   }
 
   return (
-    <main style={{ maxWidth: '20rem', margin: '3rem auto', padding: '1.5rem' }}>
-      <h1 style={{ textAlign: 'center' }}>Create an account</h1>
-      <form onSubmit={handleSubmit}>
-        <label>
-          Username
-          <input
-            style={inputStyle}
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoComplete="username"
-          />
-        </label>
-        <label>
-          Email
-          <input
-            style={inputStyle}
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-        </label>
-        <label>
-          Password
-          <input
-            style={inputStyle}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-        </label>
-        <label>
-          Confirm password
-          <input
-            style={inputStyle}
-            type="password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            autoComplete="new-password"
-          />
-        </label>
-        {error && <p style={{ color: '#b91c1c' }}>{error}</p>}
-        <button type="submit" disabled={submitting}>
-          {submitting ? 'Creating account…' : 'Register'}
-        </button>
-      </form>
-      <p style={{ textAlign: 'center' }}>
-        Already have an account? <Link href="/login">Log in</Link>
-      </p>
+    <main className="centered-page">
+      <div className="auth-card">
+        <h1>Create an account</h1>
+        <form onSubmit={handleSubmit}>
+          <label>
+            Username
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+            />
+          </label>
+          <label>
+            Email
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+          </label>
+          <label>
+            Confirm password
+            <input
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </label>
+          {error && <p className="error-text">{error}</p>}
+          <button className="primary-button" type="submit" disabled={submitting}>
+            {submitting ? 'Creating account…' : 'Register'}
+          </button>
+        </form>
+        <p className="muted" style={{ textAlign: 'center', marginBottom: 0 }}>
+          Already have an account? <Link href="/login">Log in</Link>
+        </p>
+      </div>
     </main>
   );
 }

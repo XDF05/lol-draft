@@ -1,7 +1,6 @@
 'use client';
 
 import { useDraftStore } from '../../store/draftStore';
-import type { CSSProperties } from 'react';
 
 /** Total ban/pick/Finalization turns in a complete draft (R-003 to R-007). */
 const TOTAL_TURNS = 21;
@@ -12,56 +11,6 @@ const PHASE_LABELS: Record<string, string> = {
   BANNING_P2: 'Ban Phase 2',
   PICKING_P2: 'Pick Phase 2',
   FINALIZATION: 'Finalization',
-};
-
-const containerStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
-  padding: '0.75rem 1rem',
-  marginBottom: '1rem',
-  background: '#fff',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5rem',
-};
-
-const headerStyle: CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'baseline',
-  gap: '0.5rem',
-};
-
-const phaseStyle: CSSProperties = {
-  fontWeight: 600,
-  fontSize: '0.875rem',
-  color: '#0f172a',
-};
-
-const turnStyle: CSSProperties = {
-  fontSize: '0.8125rem',
-  color: '#475569',
-};
-
-const trackStyle: CSSProperties = {
-  height: '0.5rem',
-  borderRadius: 9999,
-  background: '#e2e8f0',
-  overflow: 'hidden',
-};
-
-const fillStyle: CSSProperties = {
-  height: '100%',
-  borderRadius: 9999,
-  background: '#1d4ed8',
-  transition: 'width 0.3s ease',
-};
-
-const captionStyle: CSSProperties = {
-  fontSize: '0.75rem',
-  color: '#6b7280',
-  display: 'flex',
-  gap: '1rem',
 };
 
 /**
@@ -87,19 +36,19 @@ export default function DraftProgressBar() {
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <span style={phaseStyle}>
+    <div className="draft-progress">
+      <div className="draft-progress-header">
+        <span className="draft-progress-phase">
           {PHASE_LABELS[phase ?? ''] ?? phase ?? 'Syncing…'}
         </span>
-        <span style={turnStyle}>
+        <span className="draft-progress-turn">
           Turn {turnNumber || 0} of {TOTAL_TURNS}
         </span>
       </div>
-      <div style={trackStyle}>
-        <div style={{ ...fillStyle, width: `${progress}%` }} />
+      <div className="draft-progress-track">
+        <div className="draft-progress-fill" style={{ width: `${progress}%` }} />
       </div>
-      <div style={captionStyle}>
+      <div className="draft-progress-caption">
         <span>{bans.length} bans</span>
         <span>{picks.length} picks</span>
       </div>

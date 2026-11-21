@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { isAxiosError } from 'axios';
 import { setFearlessMode, type DraftView } from '../../lib/draft-api';
 
@@ -12,41 +12,6 @@ import { setFearlessMode, type DraftView } from '../../lib/draft-api';
  * picked champions stay locked for the rest of the draft (and can never be
  * banned or picked again). The server rejects changes after the draft starts.
  */
-
-const sectionStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
-  padding: '1rem',
-  marginBottom: '1rem',
-  background: '#fff',
-};
-
-const overlayStyle: CSSProperties = {
-  position: 'fixed',
-  inset: 0,
-  background: 'rgba(17, 24, 39, 0.55)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '1rem',
-  zIndex: 50,
-};
-
-const modalStyle: CSSProperties = {
-  background: '#fff',
-  borderRadius: '0.5rem',
-  padding: '1.25rem',
-  maxWidth: '28rem',
-  width: '100%',
-  boxShadow: '0 20px 45px rgba(0, 0, 0, 0.25)',
-};
-
-const warningStyle: CSSProperties = {
-  padding: '0.75rem',
-  borderRadius: '0.375rem',
-  background: '#fef2f2',
-  color: '#991b1b',
-};
 
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
@@ -60,19 +25,7 @@ function extractErrorMessage(err: unknown, fallback: string): string {
 /** Persistent "FEARLESS MODE ACTIVE" banner shown throughout the draft. */
 export function FearlessBanner() {
   return (
-    <div
-      role="status"
-      style={{
-        padding: '0.6rem 0.75rem',
-        marginBottom: '1rem',
-        borderRadius: '0.375rem',
-        background: '#7f1d1d',
-        color: '#fff',
-        fontWeight: 700,
-        letterSpacing: '0.04em',
-        textAlign: 'center',
-      }}
-    >
+    <div role="status" className="fearless-banner">
       FEARLESS MODE ACTIVE — picks are locked for the rest of the draft.
     </div>
   );
@@ -116,30 +69,14 @@ export default function FearlessToggle({
   }
 
   return (
-    <div style={sectionStyle}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '1rem',
-        }}
-      >
+    <div className="fearless-toggle">
+      <div className="fearless-toggle-row">
         <strong>Fearless Mode</strong>
-        <span
-          style={{
-            padding: '0.15rem 0.55rem',
-            borderRadius: '999px',
-            fontSize: '0.8rem',
-            fontWeight: 700,
-            background: enabled ? '#7f1d1d' : '#e5e7eb',
-            color: enabled ? '#fff' : '#374151',
-          }}
-        >
+        <span className={`fearless-state${enabled ? ' on' : ''}`}>
           {enabled ? 'ON' : 'OFF'}
         </span>
       </div>
-      <p style={{ margin: '0.5rem 0 0', color: '#4b5563', fontSize: '0.9rem' }}>
+      <p className="muted" style={{ margin: '0.5rem 0 0', fontSize: '0.9rem' }}>
         When enabled, every champion picked in this draft is locked permanently:
         neither player may pick or ban it again. This can only be changed before
         the draft starts.
@@ -156,18 +93,20 @@ export default function FearlessToggle({
         {enabled ? 'Turn off Fearless Mode' : 'Enable Fearless Mode'}
       </button>
       {error && !confirmOpen && (
-        <p style={{ margin: '0.5rem 0 0', color: '#b91c1c' }}>{error}</p>
+        <p className="error-text" style={{ margin: '0.5rem 0 0' }}>
+          {error}
+        </p>
       )}
 
       {confirmOpen && (
-        <div style={overlayStyle}>
+        <div className="modal-overlay">
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="fearless-modal-title"
-            style={modalStyle}
+            className="modal-card"
           >
-            <h2 id="fearless-modal-title" style={{ marginTop: 0 }}>
+            <h2 id="fearless-modal-title">
               {nextValue ? 'Enable Fearless Mode?' : 'Turn off Fearless Mode?'}
             </h2>
 
@@ -188,7 +127,7 @@ export default function FearlessToggle({
                     rest of the draft.
                   </li>
                 </ul>
-                <p style={warningStyle}>
+                <p className="notice danger">
                   <strong>Warning:</strong> once the draft starts, Fearless Mode
                   cannot be turned off.
                 </p>
@@ -201,17 +140,12 @@ export default function FearlessToggle({
             )}
 
             {error && (
-              <p style={{ margin: '0.75rem 0 0', color: '#b91c1c' }}>{error}</p>
+              <p className="error-text" style={{ margin: '0.75rem 0 0' }}>
+                {error}
+              </p>
             )}
 
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '0.5rem',
-                marginTop: '1rem',
-              }}
-            >
+            <div className="modal-actions">
               <button
                 type="button"
                 disabled={saving}
@@ -220,6 +154,7 @@ export default function FearlessToggle({
                 Cancel
               </button>
               <button
+                className="primary-button"
                 type="button"
                 disabled={saving}
                 onClick={() => void handleConfirm()}

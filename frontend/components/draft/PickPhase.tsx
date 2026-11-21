@@ -4,14 +4,13 @@ import { useState, type CSSProperties } from 'react';
 import { useToast } from '../common/Toast';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
-import { useIsMobile } from '../../lib/useMediaQuery';
 import type {
   BanConfirmedEntry,
   PickConfirmedEntry,
   Team,
 } from '../../lib/socket';
 import type { Champion } from '../../lib/types';
-import { ChampionCard, championGridStyle } from './ChampionCard';
+import ChampionPool from './ChampionPool';
 import TimerDisplay from './TimerDisplay';
 import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
 
@@ -28,14 +27,6 @@ import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
  * - Selection stages a *pending* pick locally; the opponent only sees it
  *   once `pick.confirmed` broadcasts the lock (R-009).
  */
-
-const sectionStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
-  padding: '1rem',
-  marginBottom: '1rem',
-  background: '#fff',
-};
 
 /** Champions still selectable for a pick: not banned and not already picked. */
 export function availableForPick(
@@ -166,8 +157,6 @@ export default function PickPhase() {
   const advantage = currentTurnInfo
     ? pickAdvantage(currentTurnInfo.turnNumber)
     : null;
-  const isMobile = useIsMobile();
-
   async function handleLock() {
     if (!selectedId || locking) {
       return;
@@ -201,15 +190,8 @@ export default function PickPhase() {
   const accent = myTeam === 'RED' ? '#b91c1c' : '#1d4ed8';
 
   return (
-    <div style={sectionStyle}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          gap: '1rem',
-        }}
-      >
+    <div className="phase-panel">
+      <div className="phase-heading">
         <strong>
           {isPickPhase2 ? 'Pick Phase 2 — ' : ''}
           {isMyTurn
@@ -219,7 +201,7 @@ export default function PickPhase() {
         <TimerDisplay />
       </div>
 
-      <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>
+      <p style={{ margin: '0.25rem 0 0', color: 'var(--board-muted)', fontSize: '0.85rem' }}>
         Picks — Blue {totals.BLUE}/5 · Red {totals.RED}/5
       </p>
 
@@ -229,8 +211,8 @@ export default function PickPhase() {
             margin: '0.5rem 0 0',
             padding: '0.5rem 0.75rem',
             borderRadius: '0.375rem',
-            background: advantage.team === 'BLUE' ? '#eff6ff' : '#fef2f2',
-            color: advantage.team === 'BLUE' ? '#1e40af' : '#991b1b',
+            background: advantage.team === 'BLUE' ? 'var(--primary-soft)' : 'var(--danger-soft)',
+            color: advantage.team === 'BLUE' ? 'var(--primary)' : 'var(--danger)',
             fontWeight: 600,
           }}
         >
@@ -245,51 +227,30 @@ export default function PickPhase() {
         </p>
       )}
 
-      {poolStatus === 'error' ? (
-        <p style={{ marginTop: '0.75rem', color: '#b91c1c' }}>
-          {poolError ?? 'Could not load the champion pool.'}
-        </p>
-      ) : poolStatus !== 'ready' ? (
-        <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
-          Loading champion pool…
-        </p>
-      ) : (
-        <div
-          style={{
-            ...championGridStyle(isMobile),
-            maxHeight: 260,
-            overflowY: 'auto',
-            border: '1px solid #e2e8f0',
-            borderRadius: '0.375rem',
-            padding: '0.5rem',
-            background: '#fafbfc',
-          }}
-        >
-          {champions.map((champion) => {
-            const status = championStatus.get(champion.id) ?? 'available';
-            return (
-              <ChampionCard
-                key={champion.id}
-                champion={champion}
-                status={status}
-                selected={selectedId === champion.id}
-                disabled={!canSelect}
-                accent={accent}
-                onToggle={() => toggleSelection(champion.id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <ChampionPool
+        champions={champions}
+        status={poolStatus}
+        error={poolError}
+        statusById={championStatus}
+        selectedId={selectedId}
+        disabled={!canSelect}
+        accent={accent}
+        onToggle={toggleSelection}
+      />
 
-      <button
-        type="button"
-        style={{ marginTop: '0.75rem' }}
-        disabled={!selectedId || locking || !isMyTurn}
-        onClick={() => void handleLock()}
-      >
-        {locking ? 'Locking…' : 'Lock pick'}
-      </button>
+      <div className="phase-action-row">
+        <span className="muted">
+          {isMyTurn ? 'Choose one champion, then lock it in.' : 'Waiting for the other player.'}
+        </span>
+        <button
+          type="button"
+          style={{ '--accent': accent } as CSSProperties}
+          disabled={!selectedId || locking || !isMyTurn}
+          onClick={() => void handleLock()}
+        >
+          {locking ? 'Locking…' : 'Lock pick'}
+        </button>
+      </div>
     </div>
   );
 }

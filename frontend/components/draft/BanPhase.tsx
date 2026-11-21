@@ -4,13 +4,12 @@ import { useState, type CSSProperties } from 'react';
 import { useToast } from '../common/Toast';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
-import { useIsMobile } from '../../lib/useMediaQuery';
 import type {
   BanConfirmedEntry,
   PickConfirmedEntry,
 } from '../../lib/socket';
 import type { Champion } from '../../lib/types';
-import { ChampionCard, championGridStyle } from './ChampionCard';
+import ChampionPool from './ChampionPool';
 import TimerDisplay from './TimerDisplay';
 import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
 
@@ -26,14 +25,6 @@ import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
  *   whenever the server's `timer.warning` fires at 5s / 3s / 1s. The server
  *   auto-locks (or skips) at zero, so the UI only mirrors state.
  */
-
-const sectionStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
-  padding: '1rem',
-  marginBottom: '1rem',
-  background: '#fff',
-};
 
 /**
  * Champions still selectable for a ban: everything except banned champions
@@ -95,8 +86,6 @@ export default function BanPhase() {
       return [champion.id, 'available'] as const;
     }),
   );
-  const isMobile = useIsMobile();
-
   // Ban Phase 2 (R-005) runs Red-first and allows counter-bans against
   // Phase 1 picks (unless Fearless mode), tracked as ban #4/#5 per team.
   const isBanPhase2 = currentTurnInfo?.phase === 'BANNING_P2';
@@ -137,16 +126,11 @@ export default function BanPhase() {
 
   const selectedId = myPending?.championId ?? null;
 
+  const accent = myTeam === 'RED' ? '#dc2626' : '#2563eb';
+
   return (
-    <div style={sectionStyle}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          gap: '1rem',
-        }}
-      >
+    <div className="phase-panel">
+      <div className="phase-heading">
         <strong>
           {isBanPhase2 ? 'Ban Phase 2 — ' : ''}
           {isMyTurn ? 'Your ban pick' : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
@@ -160,8 +144,8 @@ export default function BanPhase() {
             margin: '0.5rem 0 0',
             padding: '0.5rem 0.75rem',
             borderRadius: '0.375rem',
-            background: '#fef2f2',
-            color: '#991b1b',
+            background: 'var(--danger-soft)',
+            color: 'var(--danger)',
             fontWeight: 600,
           }}
         >
@@ -173,61 +157,41 @@ export default function BanPhase() {
       )}
 
       {isMyTurn && (
-        <p style={{ margin: '0.5rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>
+        <p style={{ margin: '0.5rem 0 0', color: 'var(--board-muted)', fontSize: '0.85rem' }}>
           This is {myTeam?.toLowerCase()} ban #{nextBanNumber} of 5.
         </p>
       )}
 
       {selectedId && (
-        <p style={{ margin: '0.5rem 0 0', color: '#1d4ed8' }}>
+        <p style={{ margin: '0.5rem 0 0', color: accent }}>
           Staged: <strong>{selectedId}</strong> — lock it in or pick another.
         </p>
       )}
 
-      {poolStatus === 'error' ? (
-        <p style={{ marginTop: '0.75rem', color: '#b91c1c' }}>
-          {poolError ?? 'Could not load the champion pool.'}
-        </p>
-      ) : poolStatus !== 'ready' ? (
-        <p style={{ marginTop: '0.75rem', color: '#6b7280' }}>
-          Loading champion pool…
-        </p>
-      ) : (
-        <div
-          style={{
-            ...championGridStyle(isMobile),
-            maxHeight: 260,
-            overflowY: 'auto',
-            border: '1px solid #e2e8f0',
-            borderRadius: '0.375rem',
-            padding: '0.5rem',
-            background: '#fafbfc',
-          }}
-        >
-          {champions.map((champion) => {
-            const status = championStatus.get(champion.id) ?? 'available';
-            return (
-              <ChampionCard
-                key={champion.id}
-                champion={champion}
-                status={status}
-                selected={selectedId === champion.id}
-                disabled={!canSelect}
-                onToggle={() => toggleSelection(champion.id)}
-              />
-            );
-          })}
-        </div>
-      )}
+      <ChampionPool
+        champions={champions}
+        status={poolStatus}
+        error={poolError}
+        statusById={championStatus}
+        selectedId={selectedId}
+        disabled={!canSelect}
+        accent={accent}
+        onToggle={toggleSelection}
+      />
 
-      <button
-        type="button"
-        style={{ marginTop: '0.75rem' }}
-        disabled={!selectedId || locking || !isMyTurn}
-        onClick={() => void handleLock()}
-      >
-        {locking ? 'Locking…' : 'Lock ban'}
-      </button>
+      <div className="phase-action-row">
+        <span className="muted">
+          {isMyTurn ? 'Choose one champion, then lock it in.' : 'Waiting for the other player.'}
+        </span>
+        <button
+          type="button"
+          style={{ '--accent': accent } as CSSProperties}
+          disabled={!selectedId || locking || !isMyTurn}
+          onClick={() => void handleLock()}
+        >
+          {locking ? 'Locking…' : 'Lock ban'}
+        </button>
+      </div>
     </div>
   );
 }

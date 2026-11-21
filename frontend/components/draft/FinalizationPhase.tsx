@@ -23,14 +23,6 @@ import TimerDisplay from './TimerDisplay';
  * `draft.update` to both clients.
  */
 
-const sectionStyle: CSSProperties = {
-  border: '1px solid #d1d5db',
-  borderRadius: '0.5rem',
-  padding: '1rem',
-  marginBottom: '1rem',
-  background: '#fff',
-};
-
 const listStyle: CSSProperties = {
   listStyle: 'none',
   margin: '0.5rem 0 0',
@@ -43,7 +35,7 @@ const pickRowStyle: CSSProperties = {
   justifyContent: 'space-between',
   gap: '0.75rem',
   padding: '0.35rem 0',
-  borderBottom: '1px solid #f3f4f6',
+  borderBottom: '1px solid var(--board-border)',
 };
 
 function teamLabel(team: Team | null): string {
@@ -112,7 +104,7 @@ export default function FinalizationPhase() {
   }
 
   return (
-    <div style={sectionStyle}>
+    <div className="phase-panel">
       <div
         style={{
           display: 'flex',
@@ -125,7 +117,7 @@ export default function FinalizationPhase() {
         <TimerDisplay />
       </div>
 
-      <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>
+      <p style={{ margin: '0.25rem 0 0', color: 'var(--board-muted)', fontSize: '0.85rem' }}>
         Swap two of your own picks to change their order. Swaps apply
         immediately, the opponent is not involved, and you can swap as many
         times as you like until the timer ends.
@@ -136,7 +128,7 @@ export default function FinalizationPhase() {
       </p>
 
       {myPicks.length === 0 ? (
-        <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
+        <p style={{ margin: '0.25rem 0 0', color: 'var(--board-muted)' }}>
           No picks available to reorder.
         </p>
       ) : (
@@ -146,7 +138,7 @@ export default function FinalizationPhase() {
             return (
               <li key={pick.id} style={pickRowStyle}>
                 <span>
-                  <span style={{ color: '#6b7280', marginRight: '0.35rem' }}>
+                  <span style={{ color: 'var(--board-muted)', marginRight: '0.35rem' }}>
                     {index + 1}.
                   </span>
                   <strong>{nameOf(pick)}</strong>
@@ -191,7 +183,7 @@ export default function FinalizationPhase() {
             {opponentPicks.map((pick, index) => (
               <li key={pick.id} style={pickRowStyle}>
                 <span>
-                  <span style={{ color: '#6b7280', marginRight: '0.35rem' }}>
+                  <span style={{ color: 'var(--board-muted)', marginRight: '0.35rem' }}>
                     {index + 1}.
                   </span>
                   {nameOf(pick)}
@@ -203,7 +195,7 @@ export default function FinalizationPhase() {
       )}
 
       {remaining === 0 && (
-        <p style={{ margin: '0.75rem 0 0', color: '#b91c1c', fontWeight: 600 }}>
+        <p style={{ margin: '0.75rem 0 0', color: 'var(--danger)', fontWeight: 600 }}>
           Time is up — the draft is locking.
         </p>
       )}

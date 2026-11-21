@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<
           }}
         >
           <h2 style={{ margin: '0 0 0.5rem' }}>Something went wrong</h2>
-          <p style={{ color: '#6b7280', margin: '0 0 1rem' }}>
+          <p className="muted" style={{ margin: '0 0 1rem' }}>
             {this.state.error?.message ?? 'An unexpected error occurred.'}
           </p>
           <button type="button" onClick={this.reset}>

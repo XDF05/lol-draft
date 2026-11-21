@@ -25,7 +25,7 @@ export default function TimerDisplay({ style }: TimerDisplayProps) {
   }
 
   const baseStyle: CSSProperties = {
-    color: countdownColor(remaining),
+    color: remaining > 5 ? 'var(--text)' : countdownColor(remaining),
     fontWeight: 700,
     fontVariantNumeric: 'tabular-nums',
     ...style,

@@ -22,7 +22,13 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (status !== 'authenticated') {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>Loading…</div>
+      <div className="centered-page">
+        <div className="landing-card">
+          <p className="muted" style={{ margin: 0, textAlign: 'center' }}>
+            Loading…
+          </p>
+        </div>
+      </div>
     );
   }
 

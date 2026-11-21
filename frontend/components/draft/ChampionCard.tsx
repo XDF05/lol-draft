@@ -18,32 +18,12 @@ export function championGridStyle(isMobile = false): CSSProperties {
   };
 }
 
-const skeletonKeyframes = `
-  @keyframes skeletonShimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-`;
-
-let skeletonStylesheetInjected = false;
-
-function ensureSkeletonStylesheet() {
-  if (skeletonStylesheetInjected || typeof window === 'undefined') {
-    return;
-  }
-  const style = document.createElement('style');
-  style.type = 'text/css';
-  style.innerHTML = skeletonKeyframes;
-  document.head.appendChild(style);
-  skeletonStylesheetInjected = true;
-}
-
 export function ChampionCard({
   champion,
   selected,
   disabled,
   status = 'available',
-  accent = '#1d4ed8',
+  accent = '#2563eb',
   onToggle,
   loading = false,
 }: {
@@ -61,105 +41,52 @@ export function ChampionCard({
   const isMobile = useIsMobile();
   const isUnavailable = status === 'picked' || status === 'banned';
   const cardDisabled = disabled || isUnavailable;
-  const cardStyle: CSSProperties = {
-    border: selected
-      ? `2px solid ${accent}`
-      : isUnavailable
-        ? '1px solid #cbd5e1'
-        : '1px solid #d1d5db',
-    borderRadius: '0.375rem',
-    padding: isMobile ? '0.25rem' : '0.375rem',
-    textAlign: 'center',
-    background:
-      selected
-        ? '#eff6ff'
-        : isUnavailable
-          ? '#f1f5f9'
-          : '#fff',
-    cursor: cardDisabled ? 'not-allowed' : 'pointer',
-    opacity: cardDisabled ? 0.5 : 1,
-    fontSize: isMobile ? '0.6875rem' : '0.75rem',
-    textDecoration:
-      status === 'banned' ? 'line-through' : undefined,
-    textDecorationColor: status === 'banned' ? '#ef4444' : undefined,
-  };
+  const cardStyle = { '--accent': accent } as CSSProperties;
+  const cardClasses = [
+    'champion-card',
+    selected ? 'selected' : '',
+    isUnavailable ? 'unavailable' : '',
+    status,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   if (loading) {
-    ensureSkeletonStylesheet();
-    const iconSize = isMobile ? 36 : 48;
     return (
       <button
         type="button"
-        style={{ ...cardStyle, pointerEvents: 'none' }}
+        className={cardClasses}
+        style={cardStyle}
         disabled
         aria-busy="true"
       >
-        <div
-          style={{
-            width: iconSize,
-            height: iconSize,
-            borderRadius: '0.25rem',
-            background: '#e2e8f0',
-            margin: '0 auto',
-            animation: 'skeletonShimmer 1.4s ease-in-out infinite',
-          }}
-        />
-        <div
-          style={{
-            marginTop: '0.25rem',
-            height: '0.75rem',
-            width: '60%',
-            borderRadius: '0.25rem',
-            background: '#e2e8f0',
-            margin: '0.25rem auto 0',
-            animation: 'skeletonShimmer 1.4s ease-in-out infinite',
-          }}
-        />
+        <span className="champion-portrait champion-skeleton" />
+        <span className="champion-name champion-skeleton champion-skeleton-name" />
       </button>
     );
   }
 
-  const iconSize = isMobile ? 36 : 48;
   const statusLabel =
     status === 'banned' ? 'Banned' : status === 'picked' ? 'Picked' : null;
 
   return (
     <button
       type="button"
+      className={cardClasses}
       style={cardStyle}
       disabled={cardDisabled}
       aria-pressed={selected}
       aria-disabled={cardDisabled}
+      aria-label={`${champion.name}${statusLabel ? `, ${statusLabel}` : ''}`}
+      title={champion.name}
       onClick={onToggle}
     >
-      <img
-        src={champion.iconUrl}
-        alt={champion.name}
-        width={iconSize}
-        height={iconSize}
-        style={{ borderRadius: '0.25rem', display: 'block', margin: '0 auto' }}
-      />
-      <span style={{ display: 'block', marginTop: '0.25rem' }}>
-        {champion.name}
+      <span className="champion-portrait">
+        <img src={champion.iconUrl} alt="" width={96} height={96} />
       </span>
-      {selected && (
-        <span style={{ display: 'block', color: accent, fontWeight: 600 }}>
-          Selected
-        </span>
-      )}
-      {statusLabel && (
-        <span
-          style={{
-            display: 'block',
-            marginTop: '0.125rem',
-            fontSize: '0.625rem',
-            fontWeight: 600,
-            color: status === 'banned' ? '#b91c1c' : '#64748b',
-          }}
-        >
-          {statusLabel}
-        </span>
-      )}
+      <span className="champion-name">{champion.name}</span>
+      {selected && <span className="champion-status">Selected</span>}
+      {statusLabel && <span className="champion-status">{statusLabel}</span>}
     </button>
   );
 }
