@@ -1,11 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import {
   BanConfirmedEntry,
   PickConfirmedEntry,
-  SwapRequestEntry,
   Team,
 } from './socket-events';
 import { banPhaseOf, turnInfo } from './turn-schedule';
@@ -38,7 +36,6 @@ export interface DraftSessionState {
   picks: PickConfirmedEntry[];
   pending: Partial<Record<Team, PendingSelection | null>>;
   skips: Record<Team, number>;
-  swapRequests: SwapRequestEntry[];
   updatedAt: string;
 }
 
@@ -55,7 +52,14 @@ export class DraftSessionService {
   async getOrCreate(draftId: number): Promise<DraftSessionState> {
     const existing = await this.redis.get(sessionKey(draftId));
     if (existing) {
-      return JSON.parse(existing) as DraftSessionState;
+      const state = JSON.parse(existing) as DraftSessionState;
+      // Sessions written before T-014 have picks without row ids. Repair
+      // them from PostgreSQL once so Finalization swaps have stable handles.
+      if (state.picks.some((pick) => typeof pick.id !== 'number')) {
+        state.picks = await this.pickEntries(draftId);
+        await this.save(state);
+      }
+      return state;
     }
 
     const [draft, banRows, pickRows] = await Promise.all([
@@ -84,13 +88,13 @@ export class DraftSessionService {
         locked: row.locked,
       })),
       picks: pickRows.map((row) => ({
+        id: row.id,
         championId: row.championId,
         team: row.team as Team,
         locked: row.locked,
       })),
       pending: {},
       skips: { BLUE: 0, RED: 0 },
-      swapRequests: [],
       updatedAt: new Date().toISOString(),
     };
     await this.save(state);
@@ -175,10 +179,15 @@ export class DraftSessionService {
     return { state, championId: pending.championId };
   }
 
-  /** Confirm the acting team's pending selection as a locked pick. */
+  /**
+   * Confirm the acting team's pending selection as a locked pick. The
+   * persisted Pick row id is stored on the entry so Finalization can address
+   * it for team-internal swaps.
+   */
   async confirmPick(
     draftId: number,
     team: Team,
+    pickId: number,
   ): Promise<{ state: DraftSessionState; championId: string | null }> {
     const state = await this.getOrCreate(draftId);
     const pending = state.pending[team];
@@ -187,6 +196,7 @@ export class DraftSessionService {
     }
 
     state.picks.push({
+      id: pickId,
       championId: pending.championId,
       team,
       locked: true,
@@ -208,45 +218,32 @@ export class DraftSessionService {
     return state;
   }
 
-  /** Register a Finalization swap request (R-007). */
-  async addSwapRequest(
+  /**
+   * Replace the live pick list after a team-internal Finalization swap with
+   * the authoritative PostgreSQL order (R-007). Keeping the session in step
+   * with the rows also backfills ids for sessions created before T-014.
+   */
+  async replacePicks(
     draftId: number,
-    requesterTeam: Team,
-    requestedBy: number,
-    offerChampionId: string,
-    targetChampionId: string,
-  ): Promise<SwapRequestEntry> {
+    picks: PickConfirmedEntry[],
+  ): Promise<DraftSessionState> {
     const state = await this.getOrCreate(draftId);
-    const entry: SwapRequestEntry = {
-      id: crypto.randomUUID(),
-      requestedBy,
-      requesterTeam,
-      offerChampionId,
-      targetChampionId,
-      status: 'PENDING',
-    };
-    state.swapRequests.push(entry);
+    state.picks = picks;
     await this.save(state);
-    return entry;
+    return state;
   }
 
-  /** Approve or reject a pending swap request; only the opponent may decide. */
-  async resolveSwapRequest(
-    draftId: number,
-    requestId: string,
-    decidingTeam: Team,
-    approved: boolean,
-  ): Promise<SwapRequestEntry | null> {
-    const state = await this.getOrCreate(draftId);
-    const entry = state.swapRequests.find((r) => r.id === requestId);
-    if (!entry || entry.status !== 'PENDING') {
-      return null;
-    }
-    if (entry.requesterTeam === decidingTeam) {
-      return null; // The requester's opponent decides.
-    }
-    entry.status = approved ? 'APPROVED' : 'REJECTED';
-    await this.save(state);
-    return entry;
+  /** Read the draft's pick rows in draft order (oldest pick first). */
+  private async pickEntries(draftId: number): Promise<PickConfirmedEntry[]> {
+    const rows = await this.prisma.pick.findMany({
+      where: { draftId },
+      orderBy: { id: 'asc' },
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      championId: row.championId,
+      team: row.team as Team,
+      locked: row.locked,
+    }));
   }
 }

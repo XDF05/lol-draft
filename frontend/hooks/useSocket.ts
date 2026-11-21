@@ -50,8 +50,8 @@ export function attachDraftEventListeners(socket: DraftSocket): () => void {
     ['turn.end', (next) => store().applyTurnEnd(next as never)],
     ['ban.confirmed', (p) => store().applyBanConfirmed(p as never)],
     ['pick.confirmed', (p) => store().applyPickConfirmed(p as never)],
-    ['swap.requested', (r) => store().applySwapRequested(r as never)],
-    ['swap.resolved', (p) => store().applySwapResolved(p as never)],
+    ['pick.reordered', (p) => store().applyPickReordered(p as never)],
+    ['draft.completed', (p) => store().applyDraftCompleted(p as never)],
     [
       'timer.warning',
       (p) => store().applyTimerWarning(p as never),

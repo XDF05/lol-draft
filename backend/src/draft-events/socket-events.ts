@@ -40,15 +40,12 @@ export interface ChampionSelectPayload {
   championId?: string | null;
 }
 
-export interface SwapRequestPayload {
-  /** Opponent's locked pick the requester wants. */
-  targetChampionId: string;
-  /** Requester's own locked pick offered in exchange. */
-  proposedSwapWith: string;
-}
-
-export interface SwapDecisionPayload {
-  requestId: string;
+/** Finalization team-internal swap: exchange two of the caller's own picks. */
+export interface PickSwapPayload {
+  /** First pick (Pick row id) to exchange. */
+  fromPickId: number;
+  /** Second pick (Pick row id) to exchange. */
+  toPickId: number;
 }
 
 export interface HealthPingPayload {
@@ -70,6 +67,8 @@ export interface BanConfirmedEntry {
 
 /** One confirmed pick (mirrors a `Pick` row, persisted on lock in T-010). */
 export interface PickConfirmedEntry {
+  /** Pick row id — the stable handle for Finalization swaps. */
+  id: number;
   championId: string;
   team: Team;
   locked: boolean;
@@ -107,18 +106,22 @@ export interface PickConfirmedPayload {
   picks: PickConfirmedEntry[];
 }
 
-export interface SwapRequestEntry {
-  id: string;
-  requestedBy: number;
-  requesterTeam: Team;
-  offerChampionId: string;
-  targetChampionId: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+/** Broadcast after a team-internal swap so both clients re-render the order. */
+export interface PickReorderedPayload {
+  picks: PickConfirmedEntry[];
 }
 
-export interface SwapResolvedPayload {
-  request: SwapRequestEntry;
-  approved: boolean;
+/**
+ * Finalization finished: the draft is locked and COMPLETE (R-014). Carries
+ * the final pick order so a reconnecting/public client can render results
+ * without an extra fetch.
+ */
+export interface DraftCompletedPayload {
+  draftId: number;
+  code: string;
+  completedAt: string;
+  picks: PickConfirmedEntry[];
+  bans: BanConfirmedEntry[];
 }
 
 /**

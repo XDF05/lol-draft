@@ -541,20 +541,20 @@ const canToggleFearless = useDraftStore.getState().draftStatus === 'WAITING_FOR_
 **Deliverable**: 60-second grace period for team-internal pick reordering
 
 **Tasks**:
-- [ ] Create FinalizationPhase component
-- [ ] Implement 60-second countdown timer
-- [ ] Add "Swap Pick" control on each pick of the player's own team
-- [ ] Implement team-internal swap workflow:
+- [x] Create FinalizationPhase component
+- [x] Implement 60-second countdown timer
+- [x] Add "Swap Pick" control on each pick of the player's own team
+- [x] Implement team-internal swap workflow:
   1. Player selects their own pick and a teammate's pick to exchange
   2. Swap applies immediately — the opposing team is never involved (no approval/rejection)
   3. Swaps can be repeated unlimited times while the timer runs
-- [ ] Broadcast the reordered pick list to both client screens after each swap
-- [ ] Persist the swapped pick order to database
-- [ ] Lock draft when timer expires
-- [ ] Mark draft as COMPLETE after Finalization ends
-- [ ] Trigger save to database with completedAt timestamp
-- [ ] Update draft status to 'COMPLETE'
-- [ ] Broadcast draft.completed with the final picks
+- [x] Broadcast the reordered pick list to both client screens after each swap
+- [x] Persist the swapped pick order to database
+- [x] Lock draft when timer expires
+- [x] Mark draft as COMPLETE after Finalization ends
+- [x] Trigger save to database with completedAt timestamp
+- [x] Update draft status to 'COMPLETE'
+- [x] Broadcast draft.completed with the final picks
 
 **Acceptance Criteria**:
 ```typescript

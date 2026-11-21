@@ -7,6 +7,7 @@ import {
   type BanConfirmedPayload,
   type ChampionLockAck,
   type ChampionSelectAck,
+  type DraftCompletedPayload,
   type DraftJoinAck,
   type DraftPhase,
   type DraftExpiredPayload,
@@ -15,11 +16,9 @@ import {
   type PendingSelection,
   type PickConfirmedEntry,
   type PickConfirmedPayload,
+  type PickReorderedPayload,
+  type PickSwapAck,
   type SimpleAck,
-  type SwapDecisionAck,
-  type SwapRequestAck,
-  type SwapRequestEntry,
-  type SwapResolvedPayload,
   type Team,
   type TimerExpiredPayload,
   type TimerWarningPayload,
@@ -63,9 +62,10 @@ interface DraftStoreState {
   picks: PickConfirmedEntry[];
   pending: Partial<Record<Team, PendingSelection | null>>;
   skips: Record<Team, number>;
-  swapRequests: SwapRequestEntry[];
   /** Explicit phase marker from `phase.*.start` events (TurnManager, T-009). */
   phase: DraftPhase | null;
+  /** Completion timestamp from `draft.completed` (R-014). */
+  completedAt: string | null;
 
   // --- Timer events (TurnManager, T-009) --------------------------------------
   timerWarning: TimerWarningPayload | null;
@@ -89,8 +89,8 @@ interface DraftStoreState {
   applyDraftUpdate: (snapshot: DraftSessionSnapshot) => void;
   applyBanConfirmed: (payload: BanConfirmedPayload) => void;
   applyPickConfirmed: (payload: PickConfirmedPayload) => void;
-  applySwapRequested: (request: SwapRequestEntry) => void;
-  applySwapResolved: (payload: SwapResolvedPayload) => void;
+  applyPickReordered: (payload: PickReorderedPayload) => void;
+  applyDraftCompleted: (payload: DraftCompletedPayload) => void;
   applyPhaseStart: (phase: DraftPhase) => void;
   applyTimerWarning: (payload: TimerWarningPayload) => void;
   applyTimerExpired: (payload: TimerExpiredPayload) => void;
@@ -110,14 +110,10 @@ interface DraftStoreState {
   ) => Promise<AckOutcome<ChampionSelectAck>>;
   lockPick: () => Promise<AckOutcome<ChampionLockAck>>;
   skipPick: () => Promise<AckOutcome<SimpleAck>>;
-  requestSwap: (
-    offerChampionId: string,
-    targetChampionId: string,
-  ) => Promise<AckOutcome<SwapRequestAck>>;
-  decideSwap: (
-    requestId: string,
-    approve: boolean,
-  ) => Promise<AckOutcome<SwapDecisionAck>>;
+  swapPicks: (
+    fromPickId: number,
+    toPickId: number,
+  ) => Promise<AckOutcome<PickSwapAck>>;
   pingHealth: () => Promise<AckOutcome<HealthPingAck>>;
   /** Drop the local draft session (logout / navigation away for good). */
   resetSession: () => void;
@@ -135,8 +131,8 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
   picks: [],
   pending: {},
   skips: { BLUE: 0, RED: 0 },
-  swapRequests: [],
   phase: null,
+  completedAt: null,
 
   timerWarning: null,
   timerExpired: null,
@@ -176,7 +172,6 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       picks: snapshot.picks,
       pending: snapshot.pending,
       skips: snapshot.skips,
-      swapRequests: snapshot.swapRequests,
       // `currentTurnInfo` comes from turn.start broadcasts; draft.update
       // snapshots never weaken it.
       lastError: state.lastError,
@@ -196,18 +191,19 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       return { picks: payload.picks, pending };
     }),
 
-  applySwapRequested: (request) =>
-    set((state) => {
-      const others = state.swapRequests.filter((r) => r.id !== request.id);
-      return { swapRequests: [...others, request] };
-    }),
+  applyPickReordered: (payload) => set({ picks: payload.picks }),
 
-  applySwapResolved: (payload) =>
-    set((state) => ({
-      swapRequests: state.swapRequests.map((r) =>
-        r.id === payload.request.id ? payload.request : r,
-      ),
-    })),
+  applyDraftCompleted: (payload) =>
+    set({
+      draftStatus: 'COMPLETE',
+      draftId: payload.draftId,
+      draftCode: payload.code,
+      completedAt: payload.completedAt,
+      picks: payload.picks,
+      bans: payload.bans,
+      timerWarning: null,
+      timerExpired: null,
+    }),
 
   applyPhaseStart: (phase) => set({ phase }),
 
@@ -329,34 +325,16 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
     return outcome;
   },
 
-  requestSwap: async (offerChampionId, targetChampionId) => {
-    const outcome = await emitAck<SwapRequestAck>(
-      getDraftSocket(),
-      'swap.request',
-      {
-        proposedSwapWith: offerChampionId,
-        targetChampionId,
-      },
-    );
+  swapPicks: async (fromPickId, toPickId) => {
+    const outcome = await emitAck<PickSwapAck>(getDraftSocket(), 'pick.swap', {
+      fromPickId,
+      toPickId,
+    });
     if (outcome.ok && outcome.data) {
-      get().applySwapRequested(outcome.data.request);
-    }
-    return outcome;
-  },
-
-  decideSwap: async (requestId, approve) => {
-    const outcome = approve
-      ? await emitAck<SwapDecisionAck>(getDraftSocket(), 'swap.approve', {
-          requestId,
-        })
-      : await emitAck<SwapDecisionAck>(getDraftSocket(), 'swap.reject', {
-          requestId,
-        });
-    if (outcome.ok && outcome.data) {
-      get().applySwapResolved({
-        request: outcome.data.request,
-        approved: outcome.data.approved,
-      });
+      get().applyPickReordered({ picks: outcome.data.picks });
+      set({ lastError: null });
+    } else if (!outcome.ok) {
+      set({ lastError: outcome.error ?? 'Pick swap failed' });
     }
     return outcome;
   },
@@ -385,8 +363,8 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       picks: [],
       pending: {},
       skips: { BLUE: 0, RED: 0 },
-      swapRequests: [],
       phase: null,
+      completedAt: null,
       timerWarning: null,
       timerExpired: null,
       draftExpired: null,

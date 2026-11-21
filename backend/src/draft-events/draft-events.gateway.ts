@@ -1,4 +1,5 @@
 import { Logger, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
+import * as crypto from 'crypto';
 import {
   ConnectedSocket,
   MessageBody,
@@ -23,18 +24,18 @@ import {
   draftRoom,
   DraftExpiredPayload,
   HealthPingPayload,
+  PickConfirmedEntry,
   PickConfirmedPayload,
+  PickReorderedPayload,
   BanConfirmedPayload,
   SocketUser,
-  SwapResolvedPayload,
-  SwapRequestEntry,
   Team,
   TurnStartPayload,
   userRoom,
 } from './socket-events';
 import { ChampionSelectDto } from './dto/champion-select.dto';
 import { DraftJoinDto } from './dto/draft-join.dto';
-import { SwapDecisionDto, SwapRequestDto } from './dto/swap.dto';
+import { PickSwapDto } from './dto/pick-swap.dto';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { DraftSessionState } from './draft-session.service';
 import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
@@ -46,14 +47,16 @@ import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
  * - Authenticate sockets via JWT at handshake time (`WsJwtGuard`).
  * - Room management: `draft.join` / `draft.leave` on the `draft:<id>` room,
  *   plus a personal `user:<id>` room per connected socket.
- * - Validate and route draft actions: `ban.*`, `pick.*`, `swap.*`.
+ * - Validate and route draft actions: `ban.*`, `pick.*`, `pick.swap`.
  * - Connection health monitoring via `ConnectionHealthService`.
  *
  * Scope notes (per the task breakdown):
  * - Ban/pick PostgreSQL persistence and `ban.confirmed`/`pick.confirmed`
  *   broadcast, the 30s turn timer, auto-lock and turn advancement are handled
- *   by T-009/T-010 (TurnManager); actual pick ownership swaps arrive in T-014. This gateway maintains the
- *   Redis live-session state those tasks build upon.
+ *   by T-009/T-010 (TurnManager). Finalization team-internal swaps
+ *   (`pick.swap` → `pick.reordered`) and draft completion live here and in
+ *   the TurnManager (T-014). This gateway maintains the Redis live-session
+ *   state those tasks build upon.
  *
  * Event validation middleware: the class-level `ValidationPipe` validates
  * every `@MessageBody()` payload against its DTO (class-validator), and
@@ -406,13 +409,28 @@ export class DraftEventsGateway
     }
 
     try {
-      const { state, championId } = await this.sessions.confirmPick(draftId, team);
+      // Persist first so the live entry carries the Pick row id that
+      // Finalization swaps address (T-014).
+      const row = await this.turnManager.persistPickRow(
+        draftId,
+        pendingPick,
+        team,
+      );
+      const { state, championId } = await this.sessions.confirmPick(
+        draftId,
+        team,
+        row.id,
+      );
       if (!championId) {
+        // The pending selection vanished between persist and confirm (e.g. a
+        // concurrent leave) — drop the just-created row so it cannot leak
+        // into the draft history.
+        await this.prisma.pick
+          .delete({ where: { id: row.id } })
+          .catch(() => undefined);
         this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
         throw new WsException('No pending pick selection to lock');
       }
-
-      await this.turnManager.persistPickRow(draftId, championId, team);
 
       const payload: PickConfirmedPayload = {
         championId,
@@ -450,62 +468,89 @@ export class DraftEventsGateway
   }
 
   // -------------------------------------------------------------------------
-  // Swap events (Finalization phase, R-007)
+  // Team-internal swap (Finalization phase, R-007)
   // -------------------------------------------------------------------------
 
-  /** Request to trade the requester's locked pick for an opponent pick. */
-  @SubscribeMessage('swap.request')
-  async handleSwapRequest(
+  /**
+   * Exchange two of the caller's own locked picks. Finalization swaps are
+   * team-internal and immediate: the opponent is never asked to approve or
+   * reject, and both clients receive the reordered list via `pick.reordered`.
+   * Unlimited while the 60s timer runs.
+   */
+  @SubscribeMessage('pick.swap')
+  async handlePickSwap(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: SwapRequestDto,
-  ): Promise<{ ok: true; request: SwapRequestEntry }> {
-    const { draftId, session, team, user } = await this.requireDraftContext(
-      client,
-    );
+    @MessageBody() data: PickSwapDto,
+  ): Promise<{ ok: true; picks: PickConfirmedEntry[] }> {
+    const { draftId, session, team } = await this.requireDraftContext(client);
     this.requireFinalization(session);
 
-    const myPick = session.picks.find(
-      (p) => p.team === team && p.championId === data.proposedSwapWith,
-    );
-    const opponentTeam: Team = team === 'BLUE' ? 'RED' : 'BLUE';
-    const theirPick = session.picks.find(
-      (p) => p.team === opponentTeam && p.championId === data.targetChampionId,
-    );
-    if (!myPick || !theirPick) {
-      throw new WsException(
-        'Swap requires one locked pick from each team',
-      );
+    if (data.fromPickId === data.toPickId) {
+      throw new WsException('Select two different picks to swap');
     }
 
-    const request = await this.sessions.addSwapRequest(
-      draftId,
-      team,
-      user.id,
-      data.proposedSwapWith,
-      data.targetChampionId,
-    );
+    const rows = await this.prisma.pick.findMany({
+      where: { id: { in: [data.fromPickId, data.toPickId] }, draftId },
+    });
+    const fromPick = rows.find((row) => row.id === data.fromPickId);
+    const toPick = rows.find((row) => row.id === data.toPickId);
+    if (!fromPick || !toPick) {
+      throw new WsException('Picks not part of this draft');
+    }
+    // Team-internal only: both picks must belong to the caller's own team,
+    // never the opponent's (R-007).
+    if (fromPick.team !== team || toPick.team !== team) {
+      throw new WsException('Can only swap picks within your own team');
+    }
+    if (!fromPick.locked || !toPick.locked) {
+      throw new WsException('Only locked picks can be swapped');
+    }
+
+    // The per-team unique constraint on championId rejects a direct two-row
+    // exchange mid-transaction; park the first row on a temporary id while
+    // the two champions trade places.
+    const temporaryChampionId = `__swap_${crypto.randomUUID()}`;
+    await this.prisma.$transaction([
+      this.prisma.pick.update({
+        where: { id: fromPick.id },
+        data: { championId: temporaryChampionId },
+      }),
+      this.prisma.pick.update({
+        where: { id: toPick.id },
+        data: { championId: fromPick.championId },
+      }),
+      this.prisma.pick.update({
+        where: { id: fromPick.id },
+        data: { championId: toPick.championId },
+      }),
+    ]);
+
+    // Rebuild from the authoritative rows so both the live session and the
+    // broadcast carry the new order (and row ids).
+    const reordered = await this.prisma.pick.findMany({
+      where: { draftId },
+      orderBy: { id: 'asc' },
+    });
+    const picks: PickConfirmedEntry[] = reordered.map((row) => ({
+      id: row.id,
+      championId: row.championId,
+      team: row.team as Team,
+      locked: row.locked,
+    }));
+    const state = await this.sessions.replacePicks(draftId, picks);
+
+    const payload: PickReorderedPayload = { picks };
     this.server
       .to(draftRoom(draftId))
-      .emit('swap.requested', request as unknown as Record<string, unknown>);
-    return { ok: true, request };
-  }
+      .emit('pick.reordered', payload as unknown as Record<string, unknown>);
+    this.server
+      .to(draftRoom(draftId))
+      .emit('draft.update', state as unknown as Record<string, unknown>);
 
-  /** Opponent approves a pending swap (ownership transfer is applied in T-010). */
-  @SubscribeMessage('swap.approve')
-  async handleSwapApprove(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: SwapDecisionDto,
-  ): Promise<SwapResolvedAck> {
-    return this.resolveSwap(client, data, true);
-  }
-
-  /** Opponent rejects a pending swap. */
-  @SubscribeMessage('swap.reject')
-  async handleSwapReject(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() data: SwapDecisionDto,
-  ): Promise<SwapResolvedAck> {
-    return this.resolveSwap(client, data, false);
+    this.logger.log(
+      `pick.swap draft=${draftId} team=${team} from=${fromPick.id} to=${toPick.id}`,
+    );
+    return { ok: true, picks };
   }
 
   // -------------------------------------------------------------------------
@@ -580,42 +625,6 @@ export class DraftEventsGateway
       this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
       throw err;
     }
-  }
-
-  private async resolveSwap(
-    client: Socket,
-    data: SwapDecisionDto,
-    approved: boolean,
-  ): Promise<SwapResolvedAck> {
-    const { draftId, session, team } = await this.requireDraftContext(client);
-    this.requireFinalization(session);
-
-    const entry = session.swapRequests.find((r) => r.id === data.requestId);
-    if (!entry) {
-      throw new WsException('Swap request not found');
-    }
-    if (entry.status !== 'PENDING') {
-      throw new WsException('Swap request already resolved');
-    }
-    if (entry.requesterTeam === team) {
-      throw new WsException('Only the opponent can decide a swap request');
-    }
-
-    const request = await this.sessions.resolveSwapRequest(
-      draftId,
-      data.requestId,
-      team,
-      approved,
-    );
-    if (!request) {
-      throw new WsException('Swap request could not be resolved');
-    }
-
-    const payload: SwapResolvedPayload = { request, approved };
-    this.server
-      .to(draftRoom(draftId))
-      .emit('swap.resolved', payload as unknown as Record<string, unknown>);
-    return { ok: true, request, approved };
   }
 
   private requireUser(client: Socket): SocketUser {
@@ -890,10 +899,4 @@ export class DraftEventsGateway
     // Both players may have a timer pending; the draft is over either way.
     this.clearDraftTimers(draftId);
   }
-}
-
-interface SwapResolvedAck {
-  ok: true;
-  request: SwapRequestEntry;
-  approved: boolean;
 }

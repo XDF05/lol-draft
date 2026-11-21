@@ -11,11 +11,14 @@ import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import BanPhase from './BanPhase';
 import FearlessToggle, { FearlessBanner } from './FearlessToggle';
+import FinalizationPhase from './FinalizationPhase';
 import PickPhase, { pickCounts } from './PickPhase';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import { useAuth } from '../../hooks/useAuth';
+import { useChampionData } from '../../hooks/useChampionData';
 import useSocket from '../../hooks/useSocket';
 import { useDraftStore } from '../../store/draftStore';
+import type { PickConfirmedEntry, Team } from '../../lib/socket';
 import {
   fetchDraftByCode,
   joinDraftByCode,
@@ -93,6 +96,54 @@ function CopyCodeButton({ code }: { code: string }) {
   return <button type="button" onClick={copy}>{copied ? 'Copied!' : 'Copy code'}</button>;
 }
 
+/** Final pick order shown once Finalization locks the draft (T-014). */
+function DraftResults({
+  picks,
+  completedAt,
+}: {
+  picks: PickConfirmedEntry[];
+  completedAt: string | null;
+}) {
+  const { champions } = useChampionData();
+  const names = new Map(champions.map((champion) => [champion.id, champion.name]));
+  const columns: Array<{ team: Team; label: string; color: string }> = [
+    { team: 'BLUE', label: 'Blue', color: '#1d4ed8' },
+    { team: 'RED', label: 'Red', color: '#b91c1c' },
+  ];
+
+  return (
+    <div style={cardStyle}>
+      <p style={{ fontWeight: 600, marginTop: 0 }}>Final picks</p>
+      {completedAt && (
+        <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>
+          Completed {new Date(completedAt).toLocaleString()}
+        </p>
+      )}
+      {picks.length === 0 ? (
+        <p style={{ color: '#6b7280' }}>Syncing final results…</p>
+      ) : (
+        <div style={{ display: 'flex', gap: '1.5rem' }}>
+          {columns.map(({ team, label, color }) => {
+            const teamPicks = picks.filter((pick) => pick.team === team);
+            return (
+              <div key={team} style={{ flex: 1 }}>
+                <strong style={{ color }}>{label}</strong>
+                <ol style={{ margin: '0.35rem 0 0', paddingLeft: '1.25rem' }}>
+                  {teamPicks.map((pick) => (
+                    <li key={pick.id}>
+                      {names.get(pick.championId) ?? pick.championId}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DraftRoomPage({ code }: { code: string }) {
   const { user, status: authStatus } = useAuth();
   useSocket(); // connects the socket and attaches the event listeners
@@ -106,6 +157,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
   const picks = useDraftStore((s) => s.picks);
   const pickTotals = pickCounts(picks);
   const draftExpired = useDraftStore((s) => s.draftExpired);
+  const completedAt = useDraftStore((s) => s.completedAt);
   const lastError = useDraftStore((s) => s.lastError);
   const socketJoinDraft = useDraftStore((s) => s.joinDraft);
 
@@ -231,14 +283,16 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (status === 'COMPLETE') {
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: '1.5rem' }}>
         <h1>Draft room</h1>
         <div style={cardStyle}>
-          <p style={{ fontWeight: 600 }}>Draft complete.</p>
+          <p style={{ fontWeight: 600, margin: 0 }}>Draft complete.</p>
           <p style={{ color: '#4b5563' }}>
-            Final results will be shown here once saving is implemented.
+            The Finalization timer expired and the final pick order is locked.
           </p>
         </div>
+        <DraftResults picks={picks} completedAt={completedAt} />
+        <Link href="/draft/new">Start a new draft</Link>
       </main>
     );
   }
@@ -354,9 +408,11 @@ export default function DraftRoomPage({ code }: { code: string }) {
         </div>
 
         {/* Selection boards: ban grid + countdown (T-009), pick grid with
-            advantage indicators (T-010). */}
+            advantage indicators (T-010), and the Finalization swap board
+            (T-014). */}
         {currentTurnInfo?.phase.startsWith('BANNING') && <BanPhase />}
         {currentTurnInfo?.phase.startsWith('PICKING') && <PickPhase />}
+        {currentTurnInfo?.phase === 'FINALIZATION' && <FinalizationPhase />}
 
         <div style={cardStyle}>
           {currentTurnInfo ? (

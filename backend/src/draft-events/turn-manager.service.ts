@@ -10,6 +10,9 @@ import {
 } from './turn-schedule';
 import {
   BanConfirmedPayload,
+  BanConfirmedEntry,
+  DraftCompletedPayload,
+  PickConfirmedEntry,
   PickConfirmedPayload,
   Team,
   TimerExpiredPayload,
@@ -72,10 +75,16 @@ export class TurnManagerService implements OnModuleDestroy {
   private readonly claimedTurns = new Map<number, Set<number>>();
 
   /**
-   * Test/dev override that shortens every turn countdown (the spec value is
-   * 30s). Unset DRAFT_TURN_TIMER_MS keeps the spec timing.
+   * Test/dev overrides that shorten the countdowns (spec values: 30s per
+   * action, 60s for Finalization). Unset variables keep the spec timing; a
+   * shortened turn timer also halves Finalization unless it is set itself.
    */
-  private readonly turnTimerMs = Number(process.env.DRAFT_TURN_TIMER_MS) || 30_000;
+  private readonly turnTimerOverrideMs =
+    Number(process.env.DRAFT_TURN_TIMER_MS) || null;
+  private readonly turnTimerMs = this.turnTimerOverrideMs ?? 30_000;
+  private readonly finalizationTimerMs =
+    Number(process.env.DRAFT_FINALIZATION_TIMER_MS) ||
+    (this.turnTimerOverrideMs !== null ? this.turnTimerOverrideMs * 2 : 60_000);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -179,7 +188,11 @@ export class TurnManagerService implements OnModuleDestroy {
     }
 
     const turn = turnInfo(session.currentTurn);
-    const seconds = Math.min(turn.timerSeconds, Math.ceil(this.turnTimerMs / 1000));
+    const configuredMs =
+      turn.phase === 'FINALIZATION'
+        ? this.finalizationTimerMs
+        : this.turnTimerMs;
+    const seconds = Math.min(turn.timerSeconds, Math.ceil(configuredMs / 1000));
     const deadline = Date.now() + seconds * 1000;
 
     const existing = this.timers.get(draftId);
@@ -256,13 +269,12 @@ export class TurnManagerService implements OnModuleDestroy {
     }
 
     if (turn.phase === 'FINALIZATION') {
-      // Swap resolution on the 60s finalization expiry lands with T-014.
+      // The 60s grace period ended: swaps are locked and the draft is
+      // finalized (R-007/R-014).
       this.emitTo(draftId, 'timer.expired', {
         autoLockedChampionId: null,
       } satisfies TimerExpiredPayload);
-      this.logger.log(
-        `timer.expired draft=${draftId} turn=${turn.turnNumber} (finalization — held for T-014)`,
-      );
+      await this.completeDraft(draftId);
       return;
     }
 
@@ -285,6 +297,7 @@ export class TurnManagerService implements OnModuleDestroy {
           draftId,
           team,
           turn.turnNumber,
+          pending.championId,
         );
       }
     } else {
@@ -323,26 +336,41 @@ export class TurnManagerService implements OnModuleDestroy {
   }
 
   /**
-   * Timeout with a pending pick: lock it in the live session, persist the
-   * Pick row and broadcast (T-010).
+   * Timeout with a pending pick: persist the Pick row, lock it in the live
+   * session (carrying the row id for Finalization swaps) and broadcast
+   * (T-010/T-014).
    */
   private async autoLockPick(
     draftId: number,
     team: Team,
     turnNumber: number,
+    championId: string,
   ): Promise<string | null> {
-    const { state, championId } = await this.sessions.confirmPick(draftId, team);
-    if (!championId) {
+    const row = await this.persistPickRow(draftId, championId, team);
+    const { state, championId: confirmed } = await this.sessions.confirmPick(
+      draftId,
+      team,
+      row.id,
+    );
+    if (!confirmed) {
+      // The pending selection vanished before confirmation — do not leave a
+      // stray Pick row behind.
+      await this.prisma.pick
+        .delete({ where: { id: row.id } })
+        .catch(() => undefined);
       return null;
     }
-    await this.persistPickRow(draftId, championId, team);
-    const payload: PickConfirmedPayload = { championId, team, picks: state.picks };
+    const payload: PickConfirmedPayload = {
+      championId: confirmed,
+      team,
+      picks: state.picks,
+    };
     this.emitTo(draftId, 'pick.confirmed', payload);
     this.emitTo(draftId, 'draft.update', state);
     this.logger.log(
-      `auto.lock draft=${draftId} team=${team} champion=${championId} turn=${turnNumber}`,
+      `auto.lock draft=${draftId} team=${team} champion=${confirmed} turn=${turnNumber}`,
     );
-    return championId;
+    return confirmed;
   }
 
   /**
@@ -369,21 +397,82 @@ export class TurnManagerService implements OnModuleDestroy {
   /**
    * One Pick row per locked pick (T-010: "Update PostgreSQL picks table").
    * Shared by the timer's auto-lock and the gateway's manual `pick.lock`.
+   * Returns the row id so the live session can address it during
+   * Finalization swaps.
    */
   async persistPickRow(
     draftId: number,
     championId: string,
     team: Team,
-  ): Promise<void> {
+  ): Promise<{ id: number }> {
     const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
     const playerId =
       team === 'BLUE' ? draft?.blueTeamPlayerId : draft?.redTeamPlayerId;
     if (!playerId) {
-      return;
+      throw new Error(`Draft ${draftId} has no ${team} player for this pick`);
     }
-    await this.prisma.pick.create({
+    const row = await this.prisma.pick.create({
       data: { draftId, championId, playerId, team, locked: true },
     });
+    return { id: row.id };
+  }
+
+  /**
+   * Finalization timer expired (R-007/R-014): atomically lock the draft,
+   * save `completedAt`, and broadcast the final pick order. The live session
+   * is kept (status COMPLETE) so the public/reconnect view still resolves.
+   */
+  private async completeDraft(draftId: number): Promise<void> {
+    const completed = await this.prisma.draft.updateMany({
+      where: { id: draftId, status: 'IN_PROGRESS' },
+      data: { status: 'COMPLETE', completedAt: new Date() },
+    });
+    if (completed.count === 0) {
+      return; // already completed or expired
+    }
+
+    const [draft, pickRows, banRows] = await Promise.all([
+      this.prisma.draft.findUnique({ where: { id: draftId } }),
+      this.prisma.pick.findMany({ where: { draftId }, orderBy: { id: 'asc' } }),
+      this.prisma.ban.findMany({ where: { draftId }, orderBy: { id: 'asc' } }),
+    ]);
+    if (!draft) {
+      return;
+    }
+
+    const picks: PickConfirmedEntry[] = pickRows.map((row) => ({
+      id: row.id,
+      championId: row.championId,
+      team: row.team as Team,
+      locked: row.locked,
+    }));
+    const bans: BanConfirmedEntry[] = banRows.map((row) => ({
+      championId: row.championId,
+      team: row.team as Team,
+      phase: row.phase as 1 | 2,
+      locked: row.locked,
+    }));
+
+    // Persist the COMPLETE status into the live session as well, then push
+    // the final snapshot + completion event to both clients.
+    const state = await this.sessions.syncWithRecord(draftId);
+    this.clearTimers(draftId);
+    this.claimedTurns.delete(draftId);
+
+    if (state) {
+      this.emitTo(draftId, 'draft.update', state);
+    }
+    const payload: DraftCompletedPayload = {
+      draftId,
+      code: draft.code,
+      completedAt: (draft.completedAt ?? new Date()).toISOString(),
+      picks,
+      bans,
+    };
+    this.emitTo(draftId, 'draft.completed', payload);
+    this.logger.log(
+      `draft.completed draft=${draftId} picks=${picks.length} bans=${bans.length}`,
+    );
   }
 
   /** Move to the next turn: persist, announce, re-arm. */
@@ -393,8 +482,8 @@ export class TurnManagerService implements OnModuleDestroy {
       return;
     }
     if (session.currentTurn >= MAX_TURNS) {
-      // Turn 21 is the finalization grace period; ending it (swap
-      // resolution + COMPLETE state) is handled by T-014.
+      // Turn 21 is the Finalization grace period; its timer expiry completes
+      // the draft (completeDraft).
       return;
     }
 

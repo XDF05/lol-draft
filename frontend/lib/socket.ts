@@ -49,6 +49,8 @@ export interface BanConfirmedEntry {
 }
 
 export interface PickConfirmedEntry {
+  /** Pick row id — the stable handle for Finalization swaps. */
+  id: number;
   championId: string;
   team: Team;
   locked: boolean;
@@ -57,15 +59,6 @@ export interface PickConfirmedEntry {
 export interface PendingSelection {
   type: 'BAN' | 'PICK';
   championId: string | null;
-}
-
-export interface SwapRequestEntry {
-  id: string;
-  requestedBy: number;
-  requesterTeam: Team;
-  offerChampionId: string;
-  targetChampionId: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
 }
 
 export interface BanConfirmedPayload {
@@ -81,9 +74,21 @@ export interface PickConfirmedPayload {
   picks: PickConfirmedEntry[];
 }
 
-export interface SwapResolvedPayload {
-  request: SwapRequestEntry;
-  approved: boolean;
+/** Broadcast after a team-internal Finalization swap (R-007). */
+export interface PickReorderedPayload {
+  picks: PickConfirmedEntry[];
+}
+
+/**
+ * Finalization finished: the draft is COMPLETE (R-014). Carries the final
+ * pick order so both clients can render results immediately.
+ */
+export interface DraftCompletedPayload {
+  draftId: number;
+  code: string;
+  completedAt: string;
+  picks: PickConfirmedEntry[];
+  bans: BanConfirmedEntry[];
 }
 
 /**
@@ -100,7 +105,6 @@ export interface DraftSessionSnapshot {
   picks: PickConfirmedEntry[];
   pending: Partial<Record<Team, PendingSelection | null>>;
   skips: Record<Team, number>;
-  swapRequests: SwapRequestEntry[];
   updatedAt: string;
 }
 
@@ -143,8 +147,8 @@ export interface ServerToClientEvents {
   'phase.ban2.start': () => void;
   'phase.pick2.start': () => void;
   'phase.finalization.start': () => void;
-  'swap.requested': (request: SwapRequestEntry) => void;
-  'swap.resolved': (payload: SwapResolvedPayload) => void;
+  'pick.reordered': (payload: PickReorderedPayload) => void;
+  'draft.completed': (payload: DraftCompletedPayload) => void;
   'draft.expired': (payload: DraftExpiredPayload) => void;
   'auth.error': (payload: { message: string }) => void;
   exception: (payload: ExceptionPayload) => void;
@@ -168,14 +172,9 @@ export interface ChampionLockAck {
 export interface SimpleAck {
   ok: true;
 }
-export interface SwapRequestAck {
+export interface PickSwapAck {
   ok: true;
-  request: SwapRequestEntry;
-}
-export interface SwapDecisionAck {
-  ok: true;
-  request: SwapRequestEntry;
-  approved: boolean;
+  picks: PickConfirmedEntry[];
 }
 export interface HealthPingAck {
   ok: true;
@@ -207,17 +206,9 @@ export interface ClientToServerEvents {
     payload: Record<string, never>,
     ack: (res: SimpleAck) => void,
   ) => void;
-  'swap.request': (
-    payload: { targetChampionId: string; proposedSwapWith: string },
-    ack: (res: SwapRequestAck) => void,
-  ) => void;
-  'swap.approve': (
-    payload: { requestId: string },
-    ack: (res: SwapDecisionAck) => void,
-  ) => void;
-  'swap.reject': (
-    payload: { requestId: string },
-    ack: (res: SwapDecisionAck) => void,
+  'pick.swap': (
+    payload: { fromPickId: number; toPickId: number },
+    ack: (res: PickSwapAck) => void,
   ) => void;
   'health.ping': (
     payload: { sentAt?: number },
