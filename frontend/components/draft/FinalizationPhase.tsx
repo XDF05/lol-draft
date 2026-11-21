@@ -4,7 +4,8 @@ import { useMemo, useState, type CSSProperties } from 'react';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
 import type { PickConfirmedEntry, Team } from '../../lib/socket';
-import { countdownColor, useTurnCountdown } from './useTurnCountdown';
+import { useTurnCountdown } from './useTurnCountdown';
+import TimerDisplay from './TimerDisplay';
 
 /**
  * Finalization Phase board (T-014, R-007).
@@ -121,17 +122,7 @@ export default function FinalizationPhase() {
         }}
       >
         <strong>Finalization — reorder your picks</strong>
-        {remaining !== null && (
-          <span
-            style={{
-              color: countdownColor(remaining),
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {remaining}s
-          </span>
-        )}
+        <TimerDisplay />
       </div>
 
       <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>

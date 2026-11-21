@@ -9,7 +9,7 @@ import type {
 } from '../../lib/socket';
 import type { Champion } from '../../lib/types';
 import { ChampionCard, championGridStyle } from './ChampionCard';
-import { countdownColor, useTurnCountdown } from './useTurnCountdown';
+import TimerDisplay from './TimerDisplay';
 
 /**
  * Ban Phase selection board (T-009), shared by the Blue and Red teams.
@@ -64,7 +64,6 @@ export default function BanPhase() {
   const lockBan = useDraftStore((s) => s.lockBan);
   const { champions, status: poolStatus, error: poolError } = useChampionData();
 
-  const remaining = useTurnCountdown();
   const [locking, setLocking] = useState(false);
 
   const isBanTurn =
@@ -122,17 +121,7 @@ export default function BanPhase() {
           {isBanPhase2 ? 'Ban Phase 2 — ' : ''}
           {isMyTurn ? 'Your ban pick' : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
         </strong>
-        {remaining !== null && (
-          <span
-            style={{
-              color: countdownColor(remaining),
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {remaining}s
-          </span>
-        )}
+        <TimerDisplay />
       </div>
 
       {isBanTurn && isBanPhase2 && currentTurnInfo?.expectedTeam === 'RED' && (

@@ -664,14 +664,14 @@ socket.on('disconnect', () => {
 **Deliverable**: Robust timer system with accurate countdowns
 
 **Tasks**:
-- [ ] Create TurnManager service for phase orchestration
-- [ ] Implement 30-second timer per ban/pick action
-- [ ] Add 60-second timer for Finalization phase
-- [ ] Create visual countdown display component
-- [ ] Implement warning states (5s: yellow, 3s: orange, 1s: red)
-- [ ] Auto-increment to next turn on lock/timeout
-- [ ] Handle timer resets properly
-- [ ] Add server-side timer validation
+- [x] Create TurnManager service for phase orchestration
+- [x] Implement 30-second timer per ban/pick action
+- [x] Add 60-second timer for Finalization phase
+- [x] Create visual countdown display component
+- [x] Implement warning states (5s: yellow, 3s: orange, 1s: red)
+- [x] Auto-increment to next turn on lock/timeout
+- [x] Handle timer resets properly
+- [x] Add server-side timer validation
 
 **Acceptance Criteria**:
 ```typescript

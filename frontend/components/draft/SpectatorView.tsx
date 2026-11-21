@@ -18,7 +18,7 @@ import type {
   PickConfirmedEntry,
   Team,
 } from '../../lib/socket';
-import { countdownColor, useCountdownFor } from './useTurnCountdown';
+import TimerDisplay from './TimerDisplay';
 
 /**
  * Public spectator page (T-015).
@@ -166,7 +166,7 @@ export default function SpectatorView({ code }: { code: string }) {
   const turn = live.currentTurnInfo ?? snapshot?.turn ?? null;
   const completedAt = live.completedAt ?? snapshot?.completedAt ?? null;
   const fearlessMode = live.fearlessMode ?? snapshot?.fearlessMode ?? false;
-  const remaining = useCountdownFor(turn, live.timerWarning);
+
 
   const header = (
     <div
@@ -371,17 +371,7 @@ export default function SpectatorView({ code }: { code: string }) {
                 Turn {turn.turnNumber} —{' '}
                 {PHASE_LABELS[turn.phase] ?? turn.phase}
               </strong>
-              {remaining !== null && (
-                <span
-                  style={{
-                    color: countdownColor(remaining),
-                    fontWeight: 700,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {remaining}s
-                </span>
-              )}
+              <TimerDisplay />
             </div>
             <p style={{ margin: '0.25rem 0 0' }}>
               {turn.expectedTeam

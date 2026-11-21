@@ -10,7 +10,7 @@ import type {
 } from '../../lib/socket';
 import type { Champion } from '../../lib/types';
 import { ChampionCard, championGridStyle } from './ChampionCard';
-import { countdownColor, useTurnCountdown } from './useTurnCountdown';
+import TimerDisplay from './TimerDisplay';
 
 /**
  * Pick Phase selection board (T-010), shared by the Blue and Red teams.
@@ -129,7 +129,6 @@ export default function PickPhase() {
   const lockPick = useDraftStore((s) => s.lockPick);
   const { champions, status: poolStatus, error: poolError } = useChampionData();
 
-  const remaining = useTurnCountdown();
   const [locking, setLocking] = useState(false);
 
   const isPickTurn =
@@ -188,17 +187,7 @@ export default function PickPhase() {
             ? 'Your pick'
             : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
         </strong>
-        {remaining !== null && (
-          <span
-            style={{
-              color: countdownColor(remaining),
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
-            {remaining}s
-          </span>
-        )}
+        <TimerDisplay />
       </div>
 
       <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.85rem' }}>
