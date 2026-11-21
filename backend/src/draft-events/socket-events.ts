@@ -35,6 +35,14 @@ export interface DraftJoinPayload {
   team?: Team;
 }
 
+/**
+ * Payload for `public.join` (T-015): unauthenticated spectators join the
+ * draft broadcast room with the shared draft code.
+ */
+export interface PublicJoinPayload {
+  draftCode: string;
+}
+
 export interface ChampionSelectPayload {
   /** Champion id from Data Dragon, or null to clear the pending selection. */
   championId?: string | null;
@@ -132,9 +140,41 @@ export interface DraftExpiredPayload {
   reason: string;
 }
 
+/** Acknowledgement returned by `public.join`. */
+export interface PublicJoinAck {
+  ok: true;
+  draftId: number;
+  code: string;
+  status: string;
+}
+
+/**
+ * Sanitize a broadcast payload for the public spectator room (T-015).
+ * `draft.update` snapshots carry the participants' staged selections, which
+ * must never reach spectators.
+ */
+export function publicBroadcastPayload(
+  event: string,
+  payload: unknown,
+): unknown {
+  if (event !== 'draft.update' || !payload || typeof payload !== 'object') {
+    return payload;
+  }
+  return { ...(payload as Record<string, unknown>), pending: {} };
+}
+
 /** Room name helpers. */
 export function draftRoom(draftId: number): string {
   return `draft:${draftId}`;
+}
+
+/**
+ * Read-only spectator room (T-015). Kept separate from the participant room
+ * so private state (staged/pending selections) is never broadcast to public
+ * viewers.
+ */
+export function publicDraftRoom(draftId: number): string {
+  return `draft:${draftId}:public`;
 }
 
 export function userRoom(userId: number): string {

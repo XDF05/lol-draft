@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DraftEventsModule } from '../draft-events/draft-events.module';
+import { DraftCleanupService } from './draft-cleanup.service';
 import { DraftCreationController } from './draft-creation.controller';
 import { DraftService } from './draft.service';
+import { PublicDraftController } from './public-draft.controller';
 
 /**
  * Draft room creation flow (T-008).
@@ -13,7 +15,7 @@ import { DraftService } from './draft.service';
  */
 @Module({
   imports: [AuthModule, DraftEventsModule],
-  controllers: [DraftCreationController],
-  providers: [DraftService],
+  controllers: [DraftCreationController, PublicDraftController],
+  providers: [DraftService, DraftCleanupService],
 })
 export class DraftModule {}

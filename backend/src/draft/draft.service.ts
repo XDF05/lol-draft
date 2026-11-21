@@ -8,14 +8,17 @@ import {
 import { Prisma } from '@prisma/client';
 import { DraftEventsGateway } from '../draft-events/draft-events.gateway';
 import { DraftSessionService } from '../draft-events/draft-session.service';
+import { initialTurnPayload } from '../draft-events/turn-schedule';
 import { TurnManagerService } from '../draft-events/turn-manager.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { WAITING_DRAFT_TTL_MS } from './draft.constants';
 import { CreateDraftDto, DraftSide } from './dto/create-draft.dto';
 import { JoinDraftDto } from './dto/join-draft.dto';
 import type {
   CreateDraftResponse,
   DraftView,
   JoinDraftResponse,
+  PublicDraftView,
 } from './draft.types';
 
 /**
@@ -39,9 +42,6 @@ const DRAFT_CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const DRAFT_CODE_LENGTH = 7;
 /** Retries for code collisions (both pre-check misses and P2002 races). */
 const DRAFT_CODE_MAX_ATTEMPTS = 5;
-
-/** A waiting draft with no second player is cleaned up after 5 minutes. */
-const WAITING_DRAFT_TTL_MS = 5 * 60 * 1000;
 
 /** Participant usernames resolved alongside the draft row. */
 const DRAFT_INCLUDE = {
@@ -107,6 +107,43 @@ export class DraftService {
   /** Draft lookup for the room page (participants, status). */
   async getByCode(code: string): Promise<DraftView> {
     return this.toView(await this.findLiveDraftOrThrow(code));
+  }
+
+  /**
+   * Public spectator snapshot (T-015): same lookup rules as the participant
+   * room, plus the locked bans/picks and the current turn description. No
+   * authentication and no pending (unlocked) selections are exposed.
+   */
+  async getPublicByCode(code: string): Promise<PublicDraftView> {
+    const draft = await this.findLiveDraftOrThrow(code);
+    const [banRows, pickRows] = await Promise.all([
+      this.prisma.ban.findMany({
+        where: { draftId: draft.id },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.pick.findMany({
+        where: { draftId: draft.id },
+        orderBy: { id: 'asc' },
+      }),
+    ]);
+
+    return {
+      ...this.toView(draft),
+      completedAt: draft.completedAt ? draft.completedAt.toISOString() : null,
+      bans: banRows.map((row) => ({
+        championId: row.championId,
+        team: row.team as 'BLUE' | 'RED',
+        phase: row.phase as 1 | 2,
+        locked: row.locked,
+      })),
+      picks: pickRows.map((row) => ({
+        id: row.id,
+        championId: row.championId,
+        team: row.team as 'BLUE' | 'RED',
+        locked: row.locked,
+      })),
+      turn: initialTurnPayload(draft.currentTurn),
+    };
   }
 
   /**

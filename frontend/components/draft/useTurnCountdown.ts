@@ -32,6 +32,17 @@ export function countdownColor(remaining: number): string {
 export function useTurnCountdown(): number | null {
   const currentTurnInfo = useDraftStore((s) => s.currentTurnInfo);
   const timerWarning = useDraftStore((s) => s.timerWarning);
+  return useCountdownFor(currentTurnInfo, timerWarning);
+}
+
+/**
+ * Countdown for an explicit turn/warning pair. Used by the public spectator
+ * view (T-015), which keeps its own state instead of the participant store.
+ */
+export function useCountdownFor(
+  currentTurnInfo: TurnStartPayload | null,
+  timerWarning: TimerWarningPayload | null,
+): number | null {
   const [remaining, setRemaining] = useState<number | null>(null);
 
   // New turn (or reconnect into one) → restart the local countdown.

@@ -11,6 +11,7 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { WAITING_DRAFT_TTL_MS } from '../draft/draft.constants';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConnectionHealthService } from './connection-health.service';
 import { DraftSessionService } from './draft-session.service';
@@ -22,12 +23,17 @@ import {
 } from './turn-schedule';
 import {
   draftRoom,
+  BanConfirmedEntry,
+  DraftCompletedPayload,
   DraftExpiredPayload,
   HealthPingPayload,
   PickConfirmedEntry,
   PickConfirmedPayload,
   PickReorderedPayload,
   BanConfirmedPayload,
+  publicBroadcastPayload,
+  publicDraftRoom,
+  PublicJoinAck,
   SocketUser,
   Team,
   TurnStartPayload,
@@ -36,6 +42,7 @@ import {
 import { ChampionSelectDto } from './dto/champion-select.dto';
 import { DraftJoinDto } from './dto/draft-join.dto';
 import { PickSwapDto } from './dto/pick-swap.dto';
+import { PublicJoinDto } from './dto/public-join.dto';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { DraftSessionState } from './draft-session.service';
 import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
@@ -140,8 +147,10 @@ export class DraftEventsGateway
   }
 
   /**
-   * Authenticate at handshake time; unauthenticated sockets are told why via
-   * `auth.error` and disconnected immediately.
+   * Authenticate at handshake time when credentials are present. Sockets
+   * without a token are public spectators (T-015): they stay connected but
+   * can only join read-only rooms via `public.join`. A malformed or expired
+   * token is still rejected so a broken session fails loudly.
    */
   handleConnection(client: Socket): void {
     try {
@@ -153,6 +162,11 @@ export class DraftEventsGateway
         `connect user=${user.username} socket=${client.id} total=${this.health.stats().totalConnections}`,
       );
     } catch (err) {
+      if (!this.hasHandshakeToken(client)) {
+        // Anonymous spectator connection (T-015): no user room, no presence.
+        this.logger.log(`connect spectator socket=${client.id}`);
+        return;
+      }
       const message =
         err instanceof Error ? err.message : 'Socket authentication failed';
       client.emit('auth.error', { message });
@@ -223,12 +237,8 @@ export class DraftEventsGateway
       ...initialTurnPayload(session.currentTurn),
       ...(remainingSeconds !== null ? { remainingSeconds } : {}),
     } as TurnStartPayload;
-    this.server
-      .to(draftRoom(draft.id))
-      .emit('turn.start', turnPayload as unknown as TurnStartPayload);
-    this.server
-      .to(draftRoom(draft.id))
-      .emit('draft.update', session as unknown as Record<string, unknown>);
+    this.broadcast(draft.id, 'turn.start', turnPayload);
+    this.broadcast(draft.id, 'draft.update', session);
 
     this.logger.log(
       `draft.join user=${user.username} draft=${draft.id} team=${team}`,
@@ -262,6 +272,90 @@ export class DraftEventsGateway
     }
 
     delete client.data.draftId;
+    return { ok: true };
+  }
+
+  // -------------------------------------------------------------------------
+  // Public spectator room (T-015)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Join a draft's broadcast room as a read-only spectator. The draft code is
+   * the only credential required; no user identity or presence is recorded,
+   * so a spectator disconnect can never expire the draft. The joining socket
+   * receives the current snapshot directly; subsequent live events arrive
+   * through the sanitized `draft:<id>:public` room broadcasts.
+   */
+  @SubscribeMessage('public.join')
+  async handlePublicJoin(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: PublicJoinDto,
+  ): Promise<PublicJoinAck> {
+    const code = data.draftCode.trim().toUpperCase();
+    const draft = await this.prisma.draft.findUnique({ where: { code } });
+    if (
+      !draft ||
+      draft.status === 'EXPIRED' ||
+      (draft.status === 'WAITING_FOR_PLAYERS' &&
+        Date.now() - draft.createdAt.getTime() > WAITING_DRAFT_TTL_MS)
+    ) {
+      throw new WsException('Draft not found');
+    }
+
+    // A socket only spectates one draft at a time (e.g. after a redirect).
+    const previous = client.data.publicDraftId as number | undefined;
+    if (previous && previous !== draft.id) {
+      await client.leave(publicDraftRoom(previous));
+    }
+
+    const session = await this.sessions.getOrCreate(draft.id);
+    this.applyRecordStatus(session, draft.status, draft.fearlessMode);
+
+    await client.join(publicDraftRoom(draft.id));
+    client.data.publicDraftId = draft.id;
+
+    // Make sure the countdown is armed even if only spectators are currently
+    // connected (e.g. after a server restart). A no-op when already armed.
+    await this.turnManager.resumeTurnTimer(draft.id);
+
+    // State snapshot for the joining spectator; the room already sees live
+    // updates. `remainingSeconds` keeps a mid-turn reconnect accurate.
+    const remainingSeconds = this.turnManager.remainingSecondsFor(draft.id);
+    const turnPayload: TurnStartPayload = {
+      ...initialTurnPayload(session.currentTurn),
+      ...(remainingSeconds !== null ? { remainingSeconds } : {}),
+    };
+    client.emit('turn.start', turnPayload);
+    client.emit(
+      'draft.update',
+      publicBroadcastPayload('draft.update', session),
+    );
+
+    if (draft.status === 'COMPLETE') {
+      client.emit('draft.completed', await this.completedPayload(draft.id));
+    }
+
+    this.logger.log(
+      `public.join code=${draft.code} draft=${draft.id} socket=${client.id}`,
+    );
+    return {
+      ok: true,
+      draftId: draft.id,
+      code: draft.code,
+      status: draft.status,
+    };
+  }
+
+  /** Leave the public broadcast room (navigation away / spectator timeout). */
+  @SubscribeMessage('public.leave')
+  async handlePublicLeave(
+    @ConnectedSocket() client: Socket,
+  ): Promise<{ ok: true }> {
+    const draftId = client.data.publicDraftId as number | undefined;
+    if (draftId) {
+      await client.leave(publicDraftRoom(draftId));
+      delete client.data.publicDraftId;
+    }
     return { ok: true };
   }
 
@@ -327,12 +421,8 @@ export class DraftEventsGateway
         phase,
         bans: state.bans,
       };
-      this.server
-        .to(draftRoom(draftId))
-        .emit('ban.confirmed', payload as unknown as Record<string, unknown>);
-      this.server
-        .to(draftRoom(draftId))
-        .emit('draft.update', state as unknown as Record<string, unknown>);
+      this.broadcast(draftId, 'ban.confirmed', payload);
+      this.broadcast(draftId, 'draft.update', state);
 
       this.logger.log(
         `ban.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
@@ -437,12 +527,8 @@ export class DraftEventsGateway
         team,
         picks: state.picks,
       };
-      this.server
-        .to(draftRoom(draftId))
-        .emit('pick.confirmed', payload as unknown as Record<string, unknown>);
-      this.server
-        .to(draftRoom(draftId))
-        .emit('draft.update', state as unknown as Record<string, unknown>);
+      this.broadcast(draftId, 'pick.confirmed', payload);
+      this.broadcast(draftId, 'draft.update', state);
 
       this.logger.log(
         `pick.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
@@ -540,12 +626,8 @@ export class DraftEventsGateway
     const state = await this.sessions.replacePicks(draftId, picks);
 
     const payload: PickReorderedPayload = { picks };
-    this.server
-      .to(draftRoom(draftId))
-      .emit('pick.reordered', payload as unknown as Record<string, unknown>);
-    this.server
-      .to(draftRoom(draftId))
-      .emit('draft.update', state as unknown as Record<string, unknown>);
+    this.broadcast(draftId, 'pick.reordered', payload);
+    this.broadcast(draftId, 'draft.update', state);
 
     this.logger.log(
       `pick.swap draft=${draftId} team=${team} from=${fromPick.id} to=${toPick.id}`,
@@ -588,9 +670,7 @@ export class DraftEventsGateway
     if (!session) {
       return;
     }
-    this.server
-      .to(draftRoom(draftId))
-      .emit('draft.update', session as unknown as Record<string, unknown>);
+    this.broadcast(draftId, 'draft.update', session);
   }
 
   // -------------------------------------------------------------------------
@@ -613,9 +693,7 @@ export class DraftEventsGateway
 
     try {
       const state = await this.sessions.recordSkip(draftId, team);
-      this.server
-        .to(draftRoom(draftId))
-        .emit('draft.update', state as unknown as Record<string, unknown>);
+      this.broadcast(draftId, 'draft.update', state);
       this.logger.log(
         `${action.toLowerCase()}.skip draft=${draftId} team=${team} turn=${turn.turnNumber}`,
       );
@@ -633,6 +711,62 @@ export class DraftEventsGateway
       throw new WsException('Socket is not authenticated');
     }
     return user;
+  }
+
+  /** True when the handshake carried credentials (which may still be invalid). */
+  private hasHandshakeToken(client: Socket): boolean {
+    const token = (client.handshake.auth?.token as string | undefined)?.trim();
+    const header = client.handshake.headers?.authorization;
+    return Boolean(token || (header && header.startsWith('Bearer ')));
+  }
+
+  /**
+   * Emit a live event to both the participant room and the read-only public
+   * room. Public viewers receive a sanitized snapshot for `draft.update` so
+   * staged (pending) selections never leave the participants' room.
+   */
+  private broadcast(draftId: number, event: string, payload: unknown): void {
+    this.server
+      .to(draftRoom(draftId))
+      .emit(event as never, payload as never);
+    this.server
+      .to(publicDraftRoom(draftId))
+      .emit(event as never, publicBroadcastPayload(event, payload) as never);
+  }
+
+  /** Final results payload for a COMPLETE draft (reconnecting spectators). */
+  private async completedPayload(
+    draftId: number,
+  ): Promise<DraftCompletedPayload> {
+    const [draft, banRows, pickRows] = await Promise.all([
+      this.prisma.draft.findUnique({ where: { id: draftId } }),
+      this.prisma.ban.findMany({ where: { draftId }, orderBy: { id: 'asc' } }),
+      this.prisma.pick.findMany({ where: { draftId }, orderBy: { id: 'asc' } }),
+    ]);
+    if (!draft) {
+      throw new WsException('Draft not found');
+    }
+
+    const bans: BanConfirmedEntry[] = banRows.map((row) => ({
+      championId: row.championId,
+      team: row.team as Team,
+      phase: row.phase as 1 | 2,
+      locked: row.locked,
+    }));
+    const picks: PickConfirmedEntry[] = pickRows.map((row) => ({
+      id: row.id,
+      championId: row.championId,
+      team: row.team as Team,
+      locked: row.locked,
+    }));
+
+    return {
+      draftId,
+      code: draft.code,
+      completedAt: (draft.completedAt ?? new Date()).toISOString(),
+      picks,
+      bans,
+    };
   }
 
   private teamOf(
@@ -891,9 +1025,7 @@ export class DraftEventsGateway
     // A dead draft's turn countdown must not keep firing (T-009).
     this.turnManager.clearTimers(draftId);
     const payload: DraftExpiredPayload = { reason };
-    this.server
-      .to(draftRoom(draftId))
-      .emit('draft.expired', payload as unknown as Record<string, unknown>);
+    this.broadcast(draftId, 'draft.expired', payload);
     this.logger.log(`draft.expired draft=${draftId} reason="${reason}"`);
 
     // Both players may have a timer pending; the draft is over either way.

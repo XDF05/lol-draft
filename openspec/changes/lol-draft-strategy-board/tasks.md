@@ -615,14 +615,14 @@ async function handlePickSwap(playerId: string, fromPickId: string, toPickId: st
 **Deliverable**: Link-based spectator access with reconnection
 
 **Tasks**:
-- [ ] Create SpectatorView page in Next.js
-- [ ] Implement public draft link generator (/d/:code)
-- [ ] Add socket connection for public viewers (no auth required)
-- [ ] Display real-time ban/pick updates to spectators
-- [ ] Show timer and phase information
-- [ ] Implement 30-second reconnection grace period logic
-- [ ] Auto-delete draft after session timeout
-- [ ] Display "Draft Complete" results when finished
+- [x] Create SpectatorView page in Next.js
+- [x] Implement public draft link generator (/d/:code)
+- [x] Add socket connection for public viewers (no auth required)
+- [x] Display real-time ban/pick updates to spectators
+- [x] Show timer and phase information
+- [x] Implement 30-second reconnection grace period logic
+- [x] Auto-delete draft after session timeout
+- [x] Display "Draft Complete" results when finished
 
 **Acceptance Criteria**:
 ```typescript

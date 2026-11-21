@@ -18,6 +18,8 @@ import {
   TimerExpiredPayload,
   TurnStartPayload,
   draftRoom,
+  publicBroadcastPayload,
+  publicDraftRoom,
 } from './socket-events';
 
 /** Server-side turn timer warnings (R-010: warning states at 5s, 3s, 1s). */
@@ -509,5 +511,13 @@ export class TurnManagerService implements OnModuleDestroy {
       return;
     }
     this.server.to(draftRoom(draftId)).emit(event as never, payload as never);
+    // Public spectators get the same live events, with staged selections
+    // stripped from draft.update snapshots (T-015).
+    this.server
+      .to(publicDraftRoom(draftId))
+      .emit(
+        event as never,
+        publicBroadcastPayload(event, payload) as never,
+      );
   }
 }

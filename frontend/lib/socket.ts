@@ -181,6 +181,13 @@ export interface HealthPingAck {
   serverTime: number;
   latencyMs: number | null;
 }
+/** Acknowledgement returned by `public.join` (T-015). */
+export interface PublicJoinAck {
+  ok: true;
+  draftId: number;
+  code: string;
+  status: string;
+}
 
 export interface ClientToServerEvents {
   'draft.join': (
@@ -217,6 +224,28 @@ export interface ClientToServerEvents {
 }
 
 export type DraftSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+/**
+ * Read-only spectator events (T-015). Public viewers only need the room
+ * join/leave handshake; all live updates arrive on the shared
+ * `ServerToClientEvents` contract.
+ */
+export interface SpectatorClientToServerEvents {
+  'public.join': (
+    payload: { draftCode: string },
+    ack: (res: PublicJoinAck) => void,
+  ) => void;
+  'public.leave': (ack: (res: SimpleAck) => void) => void;
+  'health.ping': (
+    payload: { sentAt?: number },
+    ack: (res: HealthPingAck) => void,
+  ) => void;
+}
+
+export type SpectatorSocket = Socket<
+  ServerToClientEvents,
+  SpectatorClientToServerEvents
+>;
 
 // ---------------------------------------------------------------------------
 // Connection factory (module-level singleton, one socket per browser tab)
@@ -258,6 +287,41 @@ export function closeDraftSocket(): void {
   }
 }
 
+let spectatorSocket: SpectatorSocket | null = null;
+
+/**
+ * Lazily create (or return) the anonymous spectator socket (T-015).
+ *
+ * Unlike `getDraftSocket()`, this connection carries no JWT: public viewers
+ * must be able to watch a draft without an account. The gateway accepts
+ * token-less handshakes as read-only spectators; they can only join a draft
+ * room through `public.join`.
+ */
+export function getSpectatorSocket(): SpectatorSocket {
+  if (!spectatorSocket) {
+    spectatorSocket = io(API_URL, {
+      transports: ['websocket'],
+      autoConnect: false,
+      // Same reconnection policy as the participant socket (R-013): retry
+      // with backoff until the viewer is back or their 30s grace window ends.
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+    });
+  }
+  return spectatorSocket;
+}
+
+/** Close and discard the spectator socket. A new one is built lazily. */
+export function closeSpectatorSocket(): void {
+  if (spectatorSocket) {
+    spectatorSocket.disconnect();
+    spectatorSocket = null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Acknowledgement helper
 // ---------------------------------------------------------------------------
@@ -275,8 +339,8 @@ export interface AckOutcome<T = unknown> {
  * event and surfaced through the draft store's `lastError`.
  */
 export function emitAck<A>(
-  socket: DraftSocket,
-  event: keyof ClientToServerEvents,
+  socket: DraftSocket | SpectatorSocket,
+  event: string,
   payload: unknown,
   timeoutMs = 4000,
 ): Promise<AckOutcome<A>> {

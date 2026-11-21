@@ -20,8 +20,10 @@ import useSocket from '../../hooks/useSocket';
 import { useDraftStore } from '../../store/draftStore';
 import type { PickConfirmedEntry, Team } from '../../lib/socket';
 import {
+  buildSpectatorUrl,
   fetchDraftByCode,
   joinDraftByCode,
+  spectatorPath,
   type DraftSide,
   type DraftView,
 } from '../../lib/draft-api';
@@ -94,6 +96,27 @@ function CopyCodeButton({ code }: { code: string }) {
   }
 
   return <button type="button" onClick={copy}>{copied ? 'Copied!' : 'Copy code'}</button>;
+}
+
+/** Shareable read-only link for the public spectator view (T-015). */
+function CopySpectatorLinkButton({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(buildSpectatorUrl(code));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard unavailable — the link is on screen anyway.
+    }
+  }
+
+  return (
+    <button type="button" onClick={copy}>
+      {copied ? 'Copied!' : 'Copy spectator link'}
+    </button>
+  );
 }
 
 /** Final pick order shown once Finalization locks the draft (T-014). */
@@ -354,6 +377,15 @@ export default function DraftRoomPage({ code }: { code: string }) {
           <p style={{ textAlign: 'center' }}>
             <CopyCodeButton code={view.code} />
           </p>
+          <p style={{ textAlign: 'center', marginBottom: '0.25rem' }}>
+            Spectators can watch at{' '}
+            <Link href={spectatorPath(view.code)}>
+              {spectatorPath(view.code)}
+            </Link>
+          </p>
+          <p style={{ textAlign: 'center' }}>
+            <CopySpectatorLinkButton code={view.code} />
+          </p>
           <p>
             You are on the{' '}
             <strong style={{ color: myTeam === 'RED' ? '#b91c1c' : '#1d4ed8' }}>
@@ -405,6 +437,18 @@ export default function DraftRoomPage({ code }: { code: string }) {
           <br />
           <strong>Red:</strong> {view.redPlayer?.username ?? '—'}
           {myTeam === 'RED' ? ' (you)' : ''}
+          <p
+            style={{
+              color: '#6b7280',
+              fontSize: '0.85rem',
+              margin: '0.5rem 0 0',
+            }}
+          >
+            Spectator link:{' '}
+            <Link href={spectatorPath(view.code)}>
+              {spectatorPath(view.code)}
+            </Link>
+          </p>
         </div>
 
         {/* Selection boards: ban grid + countdown (T-009), pick grid with

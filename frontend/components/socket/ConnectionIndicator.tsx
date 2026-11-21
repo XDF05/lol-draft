@@ -20,9 +20,19 @@ const STYLES: Record<ConnectionState, { text: string; color: string; dot: string
   error: { text: 'Connection error', color: '#b91c1c', dot: '#ef4444' },
 };
 
-export default function ConnectionIndicator() {
-  const connectionState = useDraftStore((s) => s.connectionState);
-  const latencyMs = useDraftStore((s) => s.latencyMs);
+export default function ConnectionIndicator({
+  connectionState: connectionStateOverride,
+  latencyMs: latencyOverride,
+}: {
+  /** Override for views with their own socket (public spectators, T-015). */
+  connectionState?: ConnectionState;
+  latencyMs?: number | null;
+} = {}) {
+  const storeState = useDraftStore((s) => s.connectionState);
+  const storeLatency = useDraftStore((s) => s.latencyMs);
+  const connectionState = connectionStateOverride ?? storeState;
+  const latencyMs =
+    latencyOverride !== undefined ? latencyOverride : storeLatency;
 
   const style = STYLES[connectionState];
 

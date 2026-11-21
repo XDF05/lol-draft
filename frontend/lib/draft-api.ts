@@ -1,4 +1,9 @@
 import api from './api';
+import type {
+  BanConfirmedEntry,
+  PickConfirmedEntry,
+  TurnStartPayload,
+} from './socket';
 
 /**
  * HTTP wrappers for the draft creation flow (T-008).
@@ -24,6 +29,17 @@ export interface DraftView {
   bluePlayer: DraftParticipant | null;
   redPlayer: DraftParticipant | null;
   createdAt: string;
+}
+
+/**
+ * Public spectator snapshot (T-015) returned by GET /public/draft/:code.
+ * Contains only public draft state — never pending selections.
+ */
+export interface PublicDraftView extends DraftView {
+  completedAt: string | null;
+  bans: BanConfirmedEntry[];
+  picks: PickConfirmedEntry[];
+  turn: TurnStartPayload;
 }
 
 /** POST /draft/create response. */
@@ -79,4 +95,31 @@ export async function setFearlessMode(
     { fearless },
   );
   return data;
+}
+
+/** Public spectator snapshot — no authentication required (T-015). */
+export async function fetchPublicDraftByCode(
+  code: string,
+): Promise<PublicDraftView> {
+  const { data } = await api.get<PublicDraftView>(
+    `/public/draft/${encodeURIComponent(code)}`,
+  );
+  return data;
+}
+
+/** Relative public viewing path for a draft code (`/d/:code`). */
+export function spectatorPath(code: string): string {
+  return `/d/${encodeURIComponent(code)}`;
+}
+
+/**
+ * Absolute spectator link for sharing. Falls back to the relative path
+ * during SSR; call this from an event handler to get the current origin.
+ */
+export function buildSpectatorUrl(code: string): string {
+  const path = spectatorPath(code);
+  if (typeof window === 'undefined') {
+    return path;
+  }
+  return `${window.location.origin}${path}`;
 }
