@@ -2,9 +2,13 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
+import { DraftHttpExceptionFilter } from './common/filters/draft-http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Structured error responses for all HTTP routes (T-017).
+  app.useGlobalFilters(new DraftHttpExceptionFilter());
 
   // DTO validation (class-validator) on every route.
   app.useGlobalPipes(

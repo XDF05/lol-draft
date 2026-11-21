@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
-import { isAxiosError } from 'axios';
+import { extractDraftError } from '../../lib/errors';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
 import { useChampionData } from '../../hooks/useChampionData';
 import {
@@ -51,15 +51,6 @@ const PHASE_LABELS: Record<string, string> = {
   PICKING_P2: 'Pick Phase 2',
   FINALIZATION: 'Finalization',
 };
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (isAxiosError(err)) {
-    const message = err.response?.data?.message;
-    if (Array.isArray(message)) return message.join(', ');
-    if (typeof message === 'string' && message.length > 0) return message;
-  }
-  return fallback;
-}
 
 function championName(
   championId: string,
@@ -152,7 +143,7 @@ export default function SpectatorView({ code }: { code: string }) {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setLoadError(extractErrorMessage(err, 'Draft not found.'));
+          setLoadError(extractDraftError(err).message);
         }
       });
     return () => {

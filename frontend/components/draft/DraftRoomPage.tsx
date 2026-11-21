@@ -8,7 +8,8 @@ import {
   type CSSProperties,
 } from 'react';
 import Link from 'next/link';
-import { isAxiosError } from 'axios';
+import { extractDraftError } from '../../lib/errors';
+import { ErrorBoundary } from '../../components/common/ErrorBoundary';
 import BanPhase from './BanPhase';
 import FearlessToggle, { FearlessBanner } from './FearlessToggle';
 import FinalizationPhase from './FinalizationPhase';
@@ -58,15 +59,6 @@ const codeStyle: CSSProperties = {
   textAlign: 'center',
   margin: '0.5rem 0',
 };
-
-function extractErrorMessage(err: unknown, fallback: string): string {
-  if (isAxiosError(err)) {
-    const message = err.response?.data?.message;
-    if (Array.isArray(message)) return message.join(', ');
-    if (typeof message === 'string' && message.length > 0) return message;
-  }
-  return fallback;
-}
 
 function freeSideOf(view: DraftView): DraftSide | null {
   if (view.bluePlayer === null) return 'BLUE';
@@ -199,7 +191,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
       setLoadError(null);
     } catch (err) {
       setView(null);
-      setLoadError(extractErrorMessage(err, 'Draft not found.'));
+      setLoadError(extractDraftError(err).message);
     }
   }, [code]);
 
@@ -257,7 +249,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
         await joinDraftByCode(code);
         await refresh();
       } catch (err) {
-        setJoinError(extractErrorMessage(err, 'Could not join this draft.'));
+        setJoinError(extractDraftError(err).message);
       } finally {
         joiningRef.current = false;
         setJoining(false);
@@ -293,12 +285,29 @@ export default function DraftRoomPage({ code }: { code: string }) {
       <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
         <h1>Draft room</h1>
         <div style={cardStyle}>
-          <p style={{ fontWeight: 600 }}>This draft has timed out.</p>
+          <p style={{ fontWeight: 600, marginTop: 0 }}>
+            This draft has expired.
+          </p>
           <p style={{ color: '#4b5563' }}>
             {draftExpired ??
               'A player was disconnected for too long, so the draft expired.'}
           </p>
-          <Link href="/draft/new">Start a new draft</Link>
+          <p style={{ marginTop: '1rem' }}>
+            <Link
+              href="/draft/new"
+              style={{
+                display: 'inline-block',
+                background: '#1d4ed8',
+                color: '#fff',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.375rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              Create a new draft
+            </Link>
+          </p>
         </div>
       </main>
     );
@@ -416,7 +425,8 @@ export default function DraftRoomPage({ code }: { code: string }) {
     }
 
     return (
-      <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <ErrorBoundary>
+        <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: '1.5rem' }}>
         <div
           style={{
             display: 'flex',
@@ -522,6 +532,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
           )}
         </div>
       </main>
+      </ErrorBoundary>
     );
   }
 

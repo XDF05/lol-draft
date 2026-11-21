@@ -3,7 +3,6 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DraftEventsGateway } from '../draft-events/draft-events.gateway';
@@ -12,6 +11,7 @@ import { initialTurnPayload } from '../draft-events/turn-schedule';
 import { TurnManagerService } from '../draft-events/turn-manager.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { WAITING_DRAFT_TTL_MS } from './draft.constants';
+import { DraftNotFoundError } from '../common/exceptions/draft-not-found.error';
 import { CreateDraftDto, DraftSide } from './dto/create-draft.dto';
 import { JoinDraftDto } from './dto/join-draft.dto';
 import type {
@@ -305,14 +305,14 @@ export class DraftService {
       include: DRAFT_INCLUDE,
     });
     if (!draft || draft.status === 'EXPIRED') {
-      throw new NotFoundException('Draft not found');
+      throw new DraftNotFoundError();
     }
     if (
       draft.status === 'WAITING_FOR_PLAYERS' &&
       Date.now() - draft.createdAt.getTime() > WAITING_DRAFT_TTL_MS
     ) {
       await this.hardDeleteDraft(draft.id);
-      throw new NotFoundException('Draft not found');
+      throw new DraftNotFoundError();
     }
     return draft;
   }

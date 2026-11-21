@@ -715,18 +715,18 @@ class TurnManager {
 **Deliverable**: Robust error handling and edge case coverage
 
 **Tasks**:
-- [ ] Implement global error handler in NestJS (HttpExceptionFilter)
-- [ ] Create custom exceptions for draft-specific errors:
+- [x] Implement global error handler in NestJS (HttpExceptionFilter)
+- [x] Create custom exceptions for draft-specific errors:
   - DraftNotFoundError
   - InvalidTurnException
   - ChampionUnavailableException
   - FearlessModeViolationException
-- [ ] Add client-side error boundary components
-- [ ] Handle network disconnection scenarios
-- [ ] Implement state reconciliation on reconnection
-- [ ] Create "Draft Expired" UI with option to create new draft
-- [ ] Add validation for invalid draft codes (404 vs 503 messages)
-- [ ] Test with simulated slow/unstable connections
+- [x] Add client-side error boundary components
+- [x] Handle network disconnection scenarios
+- [x] Implement state reconciliation on reconnection
+- [x] Create "Draft Expired" UI with option to create new draft
+- [x] Add validation for invalid draft codes (404 vs 503 messages)
+- [x] Test with simulated slow/unstable connections
 
 **Acceptance Criteria**:
 ```typescript
