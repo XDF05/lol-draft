@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+import { useToast } from '../common/Toast';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import type {
   BanConfirmedEntry,
   PickConfirmedEntry,
@@ -11,6 +13,7 @@ import type {
 import type { Champion } from '../../lib/types';
 import { ChampionCard, championGridStyle } from './ChampionCard';
 import TimerDisplay from './TimerDisplay';
+import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
 
 /**
  * Pick Phase selection board (T-010), shared by the Blue and Red teams.
@@ -126,10 +129,11 @@ export default function PickPhase() {
   const picks = useDraftStore((s) => s.picks);
   const pending = useDraftStore((s) => s.pending);
   const selectPick = useDraftStore((s) => s.selectPick);
-  const lockPick = useDraftStore((s) => s.lockPick);
+  const optimisticLockPick = useDraftStore((s) => s.optimisticLockPick);
   const { champions, status: poolStatus, error: poolError } = useChampionData();
 
   const [locking, setLocking] = useState(false);
+  const { toast: showToast } = useToast();
 
   const isPickTurn =
     currentTurnInfo !== null && currentTurnInfo.actionType === 'PICK';
@@ -138,12 +142,19 @@ export default function PickPhase() {
     myPending?.type === 'PICK' ? (myPending.championId ?? null) : null;
   const isMyTurn = isPickTurn && currentTurnInfo?.expectedTeam === myTeam;
   const canSelect = isMyTurn && !locking;
+
+  useDraftKeyboardShortcuts({
+    onConfirm: handleLock,
+    onCancel: () => void selectPick(null),
+    enabled: canSelect,
+  });
   const available = availableForPick(champions, bans, picks);
   const totals = pickCounts(picks);
   const isPickPhase2 = currentTurnInfo?.phase === 'PICKING_P2';
   const advantage = currentTurnInfo
     ? pickAdvantage(currentTurnInfo.turnNumber)
     : null;
+  const isMobile = useIsMobile();
 
   async function handleLock() {
     if (!selectedId || locking) {
@@ -151,7 +162,13 @@ export default function PickPhase() {
     }
     setLocking(true);
     try {
-      await lockPick();
+      const outcome = await optimisticLockPick();
+      if (!outcome.ok) {
+        showToast({
+          title: 'Pick lock failed',
+          description: outcome.error ?? 'Please try again.',
+        });
+      }
     } finally {
       setLocking(false);
     }
@@ -229,7 +246,7 @@ export default function PickPhase() {
           No champions left to pick.
         </p>
       ) : (
-        <div style={championGridStyle}>
+        <div style={championGridStyle(isMobile)}>
           {available.map((champion) => (
             <ChampionCard
               key={champion.id}

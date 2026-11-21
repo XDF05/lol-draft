@@ -13,8 +13,9 @@ FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./package.json
 COPY tsconfig.json ./tsconfig.json
+COPY prisma ./prisma
 COPY src ./src
-RUN npm run build && npm prune --omit=dev
+RUN npx prisma generate && npm run build && npm prune --omit=dev
 
 # --- Runtime ---
 FROM base AS runner

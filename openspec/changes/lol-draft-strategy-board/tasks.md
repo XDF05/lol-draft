@@ -770,14 +770,14 @@ class DraftHttpExceptionFilter extends ExceptionFilter {
 **Deliverable**: Smooth loading indicators and polish
 
 **Tasks**:
-- [ ] Create LoadingSpinner component variants
-- [ ] Add skeleton loaders for champion cards
-- [ ] Implement optimistic UI updates (update local state before server confirmation)
-- [ ] Add toast notifications for actions completed
-- [ ] Display connection quality indicator (ping latency)
-- [ ] Show draft progress bar across all phases
-- [ ] Add keyboard shortcuts (Esc to cancel, Enter to confirm)
-- [ ] Implement responsive design for different screen sizes
+- [x] Create LoadingSpinner component variants
+- [x] Add skeleton loaders for champion cards
+- [x] Implement optimistic UI updates (update local state before server confirmation)
+- [x] Add toast notifications for actions completed
+- [x] Display connection quality indicator (ping latency)
+- [x] Show draft progress bar across all phases
+- [x] Add keyboard shortcuts (Esc to cancel, Enter to confirm)
+- [x] Implement responsive design for different screen sizes
 
 **Acceptance Criteria**:
 ```typescript

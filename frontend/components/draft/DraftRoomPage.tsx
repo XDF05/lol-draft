@@ -15,9 +15,11 @@ import FearlessToggle, { FearlessBanner } from './FearlessToggle';
 import FinalizationPhase from './FinalizationPhase';
 import PickPhase, { pickCounts } from './PickPhase';
 import ConnectionIndicator from '../socket/ConnectionIndicator';
+import DraftProgressBar from './DraftProgressBar';
 import { useAuth } from '../../hooks/useAuth';
 import { useChampionData } from '../../hooks/useChampionData';
 import useSocket from '../../hooks/useSocket';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import { useDraftStore } from '../../store/draftStore';
 import type { PickConfirmedEntry, Team } from '../../lib/socket';
 import {
@@ -183,6 +185,8 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   // Guards the auto-join effect against re-entry across poll refreshes.
   const joiningRef = useRef(false);
+  const isMobile = useIsMobile();
+  const pagePadding = isMobile ? '1rem' : '1.5rem';
 
   const refresh = useCallback(async () => {
     try {
@@ -269,7 +273,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (!view) {
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: pagePadding }}>
         <p>Loading draft…</p>
       </main>
     );
@@ -315,7 +319,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   if (status === 'COMPLETE') {
     return (
-      <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: pagePadding }}>
         <h1>Draft room</h1>
         <div style={cardStyle}>
           <p style={{ fontWeight: 600, margin: 0 }}>Draft complete.</p>
@@ -358,7 +362,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
     }
 
     return (
-      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: '1.5rem' }}>
+      <main style={{ maxWidth: '26rem', margin: '3rem auto', padding: pagePadding }}>
         <div
           style={{
             display: 'flex',
@@ -426,7 +430,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
     return (
       <ErrorBoundary>
-        <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: '1.5rem' }}>
+        <main style={{ maxWidth: '34rem', margin: '3rem auto', padding: pagePadding }}>
         <div
           style={{
             display: 'flex',
@@ -438,6 +442,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
           <h1 style={{ margin: 0 }}>Draft {view.code}</h1>
           <ConnectionIndicator />
         </div>
+        <DraftProgressBar />
         {lastError && <p style={{ color: '#b91c1c' }}>{lastError}</p>}
         {fearlessActive && <FearlessBanner />}
 

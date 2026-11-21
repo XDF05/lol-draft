@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+import { useToast } from '../common/Toast';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import type {
   BanConfirmedEntry,
   PickConfirmedEntry,
@@ -10,6 +12,7 @@ import type {
 import type { Champion } from '../../lib/types';
 import { ChampionCard, championGridStyle } from './ChampionCard';
 import TimerDisplay from './TimerDisplay';
+import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
 
 /**
  * Ban Phase selection board (T-009), shared by the Blue and Red teams.
@@ -61,17 +64,25 @@ export default function BanPhase() {
   const fearlessMode = useDraftStore((s) => s.fearlessMode);
   const pending = useDraftStore((s) => s.pending);
   const selectBan = useDraftStore((s) => s.selectBan);
-  const lockBan = useDraftStore((s) => s.lockBan);
+  const optimisticLockBan = useDraftStore((s) => s.optimisticLockBan);
   const { champions, status: poolStatus, error: poolError } = useChampionData();
 
   const [locking, setLocking] = useState(false);
+  const { toast: showToast } = useToast();
 
   const isBanTurn =
     currentTurnInfo !== null && currentTurnInfo.actionType === 'BAN';
   const myPending = myTeam ? pending[myTeam] ?? null : null;
   const isMyTurn = isBanTurn && currentTurnInfo?.expectedTeam === myTeam;
   const canSelect = isMyTurn && !locking;
+
+  useDraftKeyboardShortcuts({
+    onConfirm: handleLock,
+    onCancel: () => void selectBan(null),
+    enabled: canSelect,
+  });
   const available = availableForBan(champions, bans, picks, fearlessMode);
+  const isMobile = useIsMobile();
 
   // Ban Phase 2 (R-005) runs Red-first and allows counter-bans against
   // Phase 1 picks (unless Fearless mode), tracked as ban #4/#5 per team.
@@ -87,7 +98,13 @@ export default function BanPhase() {
     }
     setLocking(true);
     try {
-      await lockBan();
+      const outcome = await optimisticLockBan();
+      if (!outcome.ok) {
+        showToast({
+          title: 'Ban lock failed',
+          description: outcome.error ?? 'Please try again.',
+        });
+      }
     } finally {
       setLocking(false);
     }
@@ -167,7 +184,7 @@ export default function BanPhase() {
           No champions left to ban.
         </p>
       ) : (
-        <div style={championGridStyle}>
+        <div style={championGridStyle(isMobile)}>
           {available.map((champion) => (
             <ChampionCard
               key={champion.id}

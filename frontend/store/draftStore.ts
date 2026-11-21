@@ -109,6 +109,8 @@ interface DraftStoreState {
     championId: string | null,
   ) => Promise<AckOutcome<ChampionSelectAck>>;
   lockPick: () => Promise<AckOutcome<ChampionLockAck>>;
+  optimisticLockBan: () => Promise<AckOutcome<ChampionLockAck>>;
+  optimisticLockPick: () => Promise<AckOutcome<ChampionLockAck>>;
   skipPick: () => Promise<AckOutcome<SimpleAck>>;
   swapPicks: (
     fromPickId: number,
@@ -287,6 +289,42 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
     return outcome;
   },
 
+  /**
+   * Optimistically apply the local team's pending ban so the UI shows it
+   * locked immediately (R-009), then round-trip with the server. On failure
+   * the optimistic ban is rolled back; the outcome is returned so the caller
+   * can surface a toast.
+   */
+  optimisticLockBan: async () => {
+    const { myTeam, pending, bans, phase } = get();
+    if (!myTeam) {
+      return { ok: false, error: 'Not on a team' } as AckOutcome<
+        ChampionLockAck
+      >;
+    }
+    const myPending = pending[myTeam];
+    if (!myPending || myPending.type !== 'BAN' || !myPending.championId) {
+      return { ok: false, error: 'No pending ban' } as AckOutcome<
+        ChampionLockAck
+      >;
+    }
+    const snapshot = { bans: [...bans], pending: { ...pending } };
+    const nextPending = { ...snapshot.pending };
+    nextPending[myTeam] = null;
+    const optimisticBan: BanConfirmedEntry = {
+      championId: myPending.championId,
+      team: myTeam,
+      phase: phase === 'BANNING_P2' ? 2 : 1,
+      locked: true,
+    };
+    set({ bans: [...snapshot.bans, optimisticBan], pending: nextPending });
+    const outcome = await get().lockBan();
+    if (!outcome.ok) {
+      set({ bans: snapshot.bans, pending: snapshot.pending });
+    }
+    return outcome;
+  },
+
   skipBan: async () => {
     const outcome = await emitAck<SimpleAck>(getDraftSocket(), 'ban.skip', {});
     if (!outcome.ok) {
@@ -313,6 +351,42 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
     );
     if (!outcome.ok) {
       set({ lastError: outcome.error ?? 'Pick lock failed' });
+    }
+    return outcome;
+  },
+
+  /**
+   * Optimistically apply the local team's pending pick so the UI shows it
+   * locked immediately (R-009), then round-trip with the server. On failure
+   * the optimistic pick is rolled back; the outcome is returned so the caller
+   * can surface a toast.
+   */
+  optimisticLockPick: async () => {
+    const { myTeam, pending, picks } = get();
+    if (!myTeam) {
+      return { ok: false, error: 'Not on a team' } as AckOutcome<
+        ChampionLockAck
+      >;
+    }
+    const myPending = pending[myTeam];
+    if (!myPending || myPending.type !== 'PICK' || !myPending.championId) {
+      return { ok: false, error: 'No pending pick' } as AckOutcome<
+        ChampionLockAck
+      >;
+    }
+    const snapshot = { picks: [...picks], pending: { ...pending } };
+    const nextPending = { ...snapshot.pending };
+    nextPending[myTeam] = null;
+    const optimisticPick: PickConfirmedEntry = {
+      id: -Date.now(),
+      championId: myPending.championId,
+      team: myTeam,
+      locked: true,
+    };
+    set({ picks: [...snapshot.picks, optimisticPick], pending: nextPending });
+    const outcome = await get().lockPick();
+    if (!outcome.ok) {
+      set({ picks: snapshot.picks, pending: snapshot.pending });
     }
     return outcome;
   },
