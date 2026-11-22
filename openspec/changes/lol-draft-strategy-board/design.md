@@ -1,899 +1,163 @@
-# System Architecture Design
-
-## High-Level Overview
-
-A real-time multiplayer draft simulator built on microservices architecture with WebSocket communication, state synchronization, and distributed caching for optimal performance.
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         CLIENT LAYER                                │
-│  ┌───────────────────┐                    ┌───────────────────┐    │
-│  │   Player 1 Client │                    │   Player 2 Client │    │
-│  │     (Blue Team)   │                    │   (Red Team)      │    │
-│  └─────────┬─────────┘                    └─────────┬─────────┘    │
-│            │ WebSocket                              │ WebSocket     │
-│            ▼                                        ▼                │
-│  ┌───────────────────┐                    ┌───────────────────┐    │
-│  │ Next.js/React     │◄─────sync─────────►│ Next.js/React     │    │
-│  │ • Auth UI         │      Socket.IO      │ • Auth UI         │    │
-│  │ • Champion Cards  │                    │ • Champion Cards  │    │
-│  │ • Timer Display   │                    │ • Timer Display   │    │
-│  │ • Pick/Ban Modal  │                    │ • Pick/Ban Modal  │    │
-│  └─────────┬─────────┘                    └─────────┬─────────┘    │
-└────────────┼────────────────────────────────────────┼──────────────┘
-             │                                        │
-             │              Socket.IO Server          │
-             ▼                                        ▼
-┌─────────────────────────┐      ┌──────────────────────────────────┐
-│   API GATEWAY (NestJS)  │◄────►│    REAL-TIME ENGINE             │
-│                         │      │                                  │
-│ • JWT Authentication    │      │ Socket.IO Adapter               │
-│ • Rate Limiter          │      │ • Room management                │
-│ • CORS Policy           │      │ • Event routing                  │
-│ • Input Validation      │      │ • Broadcasting                   │
-│                         │      └──────────────┬───────────────────┘
-│ • Controllers:          │                     │
-│   - AuthController      │    ┌────────────────▼────────────────┐  │
-│   - DraftController     │◄──►│        STATE MANAGEMENT         │  │
-│   - ChampionController  │    │                                  │  │
-│   - GameController      │    │ Redis Cluster                   │  │
-│                          │    ├─────────────────────────────────┤  │
-│ • Services:              │    │ • Draft session state           │  │
-│   - DraftService         │    │ • Turn timer countdowns          │  │
-│   - GameService          │    │ • Player connections             │  │
-│   - ChampionService      │    │ • Lock states                    │  │
-│   - AuthService          │    └──────────────┬───────────────────┘  │
-│   - RiotAPIWrapper       │                   │                        │
-│                          │                   ▼                        │
-│ • Middleware:            │      ┌────────────────────────────────┐   │
-│   - JwtAuth              │◄────►│         PERSISTENCE LAYER      │   │
-│   - RequestValidator     │      │                                  │   │
-│   - ErrorHandler         │      │ PostgreSQL 15                   │   │
-│   - Logging              │      │ (Prisma ORM)                    │   │
-│                          │      ├─────────────────────────────────┤   │
-│ • DTOs & Validators:     │      │ Tables:                         │   │
-│   - Ban/PickRequest      │      │ • users                         │   │
-│   - FearlessToggleReq    │      │ • drafts                        │   │
-│   - ChampionSelectDto    │      │ • picks                          │   │
-│   - DraftCodeDto         │      │ • bans                           │   │
-│                          │      └─────────────────────────────────┘   │
-└──────────────────────────┘                                             │
-                                                                          │
-                    ┌──────────────────────────────────────────────────┐  │
-                    │                EXTERNAL DEPENDENCIES             │  │
-                    ├──────────────────────────────────────────────────┤  │
-                    │  Riot Data Dragon CDN (public, no key)           │  │
-                    │  • GET /api/versions.json → latest patch         │  │
-                    │  • GET /cdn/<patch>/data/en_US/champion.json     │  │
-                    │    → champion ids, names + icon URLs             │  │
-                    │  • Icons: /cdn/<patch>/img/champion/<id>.png     │  │
-                    │                                                  │  │
-                    │  Redis Cache Strategy:                           │  │
-                    │  • Champion data: no TTL (version-pinned)        │  │
-                    │  • Latest patch check TTL: 1h                    │  │
-                    │  • Session tokens TTL: 15 min                    │  │
-                    │  • Rate limit counters TTL: 5 min                │  │
-                    └──────────────────────────────────────────────────┘  │
-                                                                          │
-```
-
-## Component Architecture
-
-### 1. Frontend Components (Next.js + React)
-
-#### Application Structure
-```
-src/
-├── app/                          # Next.js App Router
-│   ├── draft/                   # Draft application pages
-│   │   ├── new/                 # Create new draft
-│   │   │   └── page.tsx        # Draft creation UI
-│   │   ├── [code]/             # Active draft room
-│   │   │   ├── layout.tsx      # Shared draft layout
-│   │   │   ├── page.tsx        # Main draft board
-│   │   │   └── join/          # Public viewing link
-│   │   │       └── page.tsx    # Spectator view
-│   │   └── results/[id]/       # Completed drafts
-│   │       └── page.tsx        # Results display
-│   ├── login/                   # Authentication pages
-│   │   ├── page.tsx            # Login form
-│   │   └── register/           # Registration
-│   │       └── page.tsx
-│   └── globals.css             # Global styles
-│
-├── components/                  # Reusable React components
-│   ├── common/                 # Shared UI elements
-│   │   ├── Button.tsx
-│   │   ├── Modal.tsx
-│   │   ├── TimerDisplay.tsx    # Countdown timer UI
-│   │   └── LoadingSpinner.tsx
-│   │
-│   ├── draft/                  # Draft-specific components
-│   │   ├── DraftBoard.tsx      # Main board layout
-│   │   ├── ChampionCard.tsx    # Individual champion display
-│   │   ├── BanPhase.tsx        # Ban phase UI
-│   │   ├── PickPhase.tsx       # Pick phase UI
-│   │   ├── TeamBanner.tsx      # Team identifier
-│   │   └── FearlessToggle.tsx  # Mode toggle button
-│   │
-│   └── socket/                 # Socket.IO components
-│       └── ConnectionIndicator.tsx
-│
-├── hooks/                      # Custom React hooks
-│   ├── useSocket.ts           # Socket connection management
-│   ├── useDraftState.ts      # Draft state subscription
-│   ├── useTimer.ts            # Turn timer logic
-│   ├── useChampionData.ts     # Champion list fetching
-│   └── useAuth.ts             # Authentication handling
-│
-├── lib/                        # Utility libraries
-│   ├── socket.ts              # Socket.IO client init
-│   ├── api.ts                 # HTTP API client
-│   ├── constants.ts           # Draft rules, timer values
-│   └── types.ts               # TypeScript interfaces
-│
-└── store/                      # State management
-    └── draftStore.ts          # Zustand/Redux store
-```
-
-#### Key UI Components
-
-**DraftBoard Component**
-```typescript
-interface Props {
-  blueTeam: Player;
-  redTeam: Player;
-  currentTurn: Turn;
-  phase: DraftPhase;
-  selectedChampion?: Champion;
-  onLockSelection: (championId: string) => void;
-  onSkipTurn: () => void;
-}
-
-const DraftBoard = ({ blueTeam, redTeam, currentTurn, ... }) => {
-  const [selected, setSelected] = useState<string | null>(null);
-  
-  return (
-    <div className="draft-board">
-      {/* Top Banner */}
-      <PhaseBanner phase={phase} turnNumber={currentTurn.number} />
-      
-      {/* Banned Champions Section */}
-      <BannedChampions bans={currentTurn.bans} />
-      
-      {/* Main Selection Area */}
-      <ChampionPool 
-        champions={availableChampions}
-        selectedId={selected}
-        onSelect={setSelected}
-        onLock={() => onLockSelection(selected)}
-      />
-      
-      {/* Timer Display */}
-      <TimerDisplay seconds={currentTurn.remainingSeconds} />
-      
-      {/* Action Button */}
-      <ActionButton 
-        disabled={!selected}
-        onClick={onLockSelection}
-      />
-    </div>
-  );
-};
-```
-
-**ChampionCard Component**
-```typescript
-interface Props {
-  champion: Champion;
-  isSelected?: boolean;
-  isBanned?: boolean;
-  isPickedByTeam?: boolean[]; // Blue picked, Red picked
-}
-
-const ChampionCard = ({ champion, ... }) => {
-  const cardStyle = {
-    opacity: isBanned ? 0.3 : 1,
-    border: isSelected 
-      ? '4px solid #FFD700'   // Gold for selected
-      : isPickedByTeam.some(p => p) 
-        ? '2px solid #888'     // Gray for opponent's picks
-        : '2px solid transparent',
-    cursor: !isBanned && !isPickedByTeam.some(p => p) ? 'pointer' : 'not-allowed'
-  };
-  
-  return (
-    <div style={cardStyle} onClick={!isBanned ? () => setSelected(champion.id) : null}>
-      <img src={champion.iconUrl} alt={champion.name} />
-      <span>{champion.name}</span>
-    </div>
-  );
-};
-```
-
-### 2. Backend Services (NestJS)
-
-#### Service Layer Architecture
-```typescript
-// services/draft.service.ts
-@Injectable()
-export class DraftService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly redisService: RedisService,
-    private readonly riotApiService: RiotApiService,
-    private readonly eventEmitter: EventEmitter2
-  ) {}
-
-  async startDraft(draftCode: string): Promise<DraftState> {
-    // Validate draft exists and is waiting for players
-    const draft = await this.prisma.draft.findUnique({
-      where: { code: draftCode },
-      include: { blueTeamPlayer: true, redTeamPlayer: true }
-    });
-
-    if (!draft || draft.status !== 'WAITING_FOR_PLAYERS') {
-      throw new NotFoundHttpException('Draft not found or expired');
-    }
-
-    // Initialize state in Redis for real-time updates
-    await this.redisService.set(`draft:${draft.id}`, JSON.stringify(draft));
-    
-    // Create broadcast room
-    const roomId = `draft:${draft.id}`;
-    await this.socketAdapter.joinRoom(roomId, draft.blueTeamPlayer.userId);
-    await this.socketAdapter.joinRoom(roomId, draft.redTeamPlayer.userId);
-
-    // Transition to in-progress
-    return this.prisma.draft.update({
-      where: { id: draft.id },
-      data: { 
-        status: 'IN_PROGRESS',
-        currentTurn: 1,
-        updatedAt: new Date()
-      }
-    });
-  }
-
-  async processBanSelection(
-    playerId: string,
-    championId: string | null,
-    autoLock: boolean = false
-  ): Promise<BanAction> {
-    // Get current draft state from Redis
-    const draftState = await this.redisService.get(`draft:${currentDraftId}`);
-    
-    // Validate: correct team's turn?
-    if (!this.isBanTurn(draftState.currentTurn)) {
-      throw new UnauthorizedHttpException('Not your turn');
-    }
-
-    // Check champion availability
-    const isBanned = draftState.bansPhase1[championId] || draftState.bansPhase2[championId];
-    if (isBanned) {
-      throw new ConflictHttpException('Champion already banned');
-    }
-
-    // Apply ban
-    const newBans = { ...draftState.bansPhase1, [championId]: true };
-    
-    // Emit broadcast event
-    await this.eventEmitter.emitToRoom(
-      `draft:${currentDraftId}`,
-      'ban.confirmed',
-      { championId, bans: newBans }
-    );
-
-    // Persist to database
-    await this.prisma.ban.upsert({
-      where: { 
-        draft_id_champion_id_team_player_id: {
-          draft_id: currentDraftId,
-          champion_id: championId!,
-          team: 'BLUE' // or RED based on player ID
-        }
-      },
-      update: { locked: true },
-      create: {
-        draft_id: currentDraftId,
-        champion_id: championId!,
-        team: 'BLUE',
-        playerId: playerId,
-        locked: true
-      }
-    });
-
-    return { success: true, bans: newBans };
-  }
-
-  async processPickSelection(
-    playerId: string,
-    championId: string | null,
-    autoLock: boolean = false
-  ): Promise<PickAction> {
-    // Similar flow to ban but with pick tracking and fearless mode check
-    
-    // Fearless mode validation
-    if (draftState.fearlessMode) {
-      const alreadyPickedByOpponent = draftState.redPicks.some(p => p.id === championId);
-      if (alreadyPickedByOpponent) {
-        throw new ConflictHttpException('Cannot pick champion in fearless mode');
-      }
-    }
-
-    // Continue with pick logic...
-  }
-}
-```
-
-#### Controller Layer
-```typescript
-// controllers/draft.controller.ts
-@Controller('draft')
-@UseGuards(JwtAuthGuard)
-export class DraftController {
-  constructor(private readonly draftService: DraftService) {}
-
-  @Get(':code/bans')
-  @UsePipes(ValidationPipe)
-  async getBans(@Param('code') code: string): Promise<Ban[]> {
-    return this.prisma.ban.findMany({
-      where: { draft_code: code },
-      include: { champion: true }
-    });
-  }
-
-  @Get(':code/picks')
-  @UsePipes(ValidationPipe)
-  async getPicks(@Param('code') code: string): Promise<Pick[]> {
-    return this.prisma.pick.findMany({
-      where: { draft_code: code },
-      include: { champion: true }
-    });
-  }
-
-  @Post(':code/fearless-toggle')
-  async toggleFearless(@Param('code') code: string, @Body() dto: FearlessToggleDto) {
-    // Only allowed before draft starts
-    const draft = await this.draftService.getDraft(code);
-    
-    if (draft.status === 'IN_PROGRESS') {
-      throw new UnauthorizedHttpException('Cannot toggle during active draft');
-    }
-
-    return this.prisma.draft.update({
-      where: { id: draft.id },
-      data: { fearlessMode: dto.fearless }
-    });
-  }
-}
-```
-
-### 3. Data Models (Prisma Schema)
-
-```prisma
-// schema.prisma
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  email     String   @unique
-  passwordHash String @unique
-  
-  createdAt DateTime @default(now())
-  
-  blueTeamDrafts Draft[] @relation("BlueTeam")
-  redTeamDrafts Draft[] @relation("RedTeam")
-}
-
-model Draft {
-  id        Int         @id @default(autoincrement())
-  code      String      @unique
-  
-  blueTeamPlayerId Int
-  redTeamPlayerId  Int
-  blueTeamPlayer   User  @relation("BlueTeam", fields: [blueTeamPlayerId], references: [id])
-  redTeamPlayer    User  @relation("RedTeam", fields: [redTeamPlayerId], references: [id])
-  
-  fearlessMode    Boolean     @default(false)
-  status          String      // WAITING_FOR_PLAYERS | IN_PROGRESS | COMPLETE
-  
-  currentTurn     Int         @default(1) @db.Int
-  maxTurns        Int         // Fixed at 21
-  
-  createdAt       DateTime    @default(now())
-  completedAt     DateTime?
-  
-  bansPhase1    Ban[]
-  bansPhase2    Ban[]
-  bluePicks     Pick[]
-  redPicks      Pick[]
-}
-
-model Ban {
-  id          Int   @id @default(autoincrement())
-  draftId     Int
-  championId  String // Map to champion.id from Data Dragon
-  
-  draft       Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  
-  playerId    Int
-  team        String // BLUE | RED
-  
-  locked      Boolean @default(false)
-  
-  createdAt   DateTime  @default(now())
-  
-  @@unique([draftId, championId, team])
-}
-
-model Pick {
-  id          Int   @id @default(autoincrement())
-  draftId     Int
-  championId  String
-  
-  draft       Draft @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  
-  playerId    Int
-  team        String // BLUE | RED
-  
-  locked      Boolean @default(false)
-  
-  createdAt   DateTime  @default(now())
-  
-  @@unique([draftId, championId, team])
-}
-
-model SessionToken {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  token     String   @unique
-  
-  expiresAt DateTime
-  
-  createdAt DateTime @default(now())
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// Redis-backed state (not persisted to DB, managed by Redis)
-// • Current turn timer countdowns
-// • Pending selections awaiting lock confirmation
-// • Player connection status
-```
-
-### 4. Socket.IO Event Flow
-
-#### Client → Server Events
-```typescript
-interface ClientEvents {
-  // Authentication & Connection
-  'auth.login': (credentials: LoginCredentials) => Promise<{ token: string }>;
-  
-  'draft.join': (draftCode: string, teamPreference: 'BLUE' | 'RED') => Promise<void>;
-  
-  'draft.fearless.toggle': (fearlessMode: boolean) => Promise<boolean>;
-  
-  // Selection Actions
-  'ban.select': (championId: string | null) => void;
-  'ban.lock': () => void;
-  
-  'pick.select': (championId: string | null) => void;
-  'pick.lock': () => void;
-  
-  'turn.skip': () => Promise<void>;
-  
-  // Finalization Phase — team-internal pick swaps only (no opponent approval)
-  // Exchanges the requesting player's pick with a teammate's pick to reorder
-  // the team's picks in the draft. Allowed unlimited times during Finalization.
-  'pick.swap': (fromPickId: string, toPickId: string) => void;
-}
-```
-
-#### Server → Client Events
-```typescript
-interface ServerEvents {
-  // State Updates
-  'draft.update': (state: DraftState) => void;
-  
-  // Turn Management
-  'turn.start': (turn: Turn) => void;
-  'turn.end': (nextTurnNumber: number) => void;
-  
-  // Selection Feedback
-  'ban.confirmed': (bans: Ban[]) => void;
-  'pick.confirmed': (picks: Pick[]) => void;
-  'pick.reordered': (picks: Pick[]) => void; // broadcast after each team-internal swap in Finalization
-  
-  // Timer Events
-  'timer.warning': { seconds: number, turn: Turn } => void;
-  'timer.expired': (autoLockedChampionId: string | null) => void;
-  
-  // Phase Transitions
-  'phase.ban1.start': () => void;
-  'phase.pick1.start': () => void;
-  'phase.ban2.start': () => void;
-  'phase.pick2.start': () => void;
-  'phase.finalization.start': () => void;
-  
-  // Draft Lifecycle
-  'draft.completed': (results: DraftResults) => void;
-  'draft.expired': { reason: string } => void;
-}
-```
-
-#### Event Router (Server-Side)
-```typescript
-@OnMessage('ban.select')
-async handleBanSelect(
-  @Socket() socket: Socket,
-  @Body() data: { championId: string | null }
-): Promise<void> {
-  // Get player from socket room
-  const playerId = socket.data.userId;
-  const draftId = socket.data.draftId;
-  
-  const selectedChampion = data.championId 
-    ? await this.redisService.get(`draft:${draftId}.champion:${data.championId}`)
-    : null;
-  
-  // Forward to selection processor
-  await this.draftService.processBanSelection(playerId, selectedChampion);
-}
-
-@OnMessage('timer.warning')
-async handleTimerWarning(
-  @Socket() socket: Socket,
-  @Body() data: { seconds: number }
-): Promise<void> {
-  // Broadcast warning to all players in room
-  this.eventEmitter.emitToRoom(socket.data.roomId, 'timer.warning', data);
-}
-```
-
-### 5. Real-Time State Management (Zustand)
-
-```typescript
-// store/draftStore.ts
-import { create } from 'zustand';
-import { io, Socket } from 'socket.io-client';
-
-interface DraftState {
-  // Core state
-  currentTurn: Turn | null;
-  selectedChampionId: string | null;
-  bans: Ban[];
-  picks: Pick[];
-  phase: DraftPhase;
-  
-  // Player info
-  playerId: string | null;
-  team: 'BLUE' | 'RED';
-  
-  // Connection state
-  isConnected: boolean;
-  socket: Socket | null;
-  
-  // Actions
-  connectSocket: (draftId: string, userId: string) => void;
-  disconnectSocket: () => void;
-  selectChampion: (championId: string | null) => void;
-  lockSelection: () => void;
-  skipTurn: () => Promise<void>;
-  
-  // Listeners
-  onTurnUpdate: (callback: (turn: Turn) => void) => () => void;
-  onBanUpdate: (callback: (bans: Ban[]) => void) => () => void;
-}
-
-export const useDraftStore = create<DraftState>((set, get) => ({
-  currentTurn: null,
-  selectedChampionId: null,
-  bans: [],
-  picks: [],
-  phase: 'BANNING_P1',
-  playerId: null,
-  team: 'BLUE',
-  isConnected: false,
-  socket: null,
-  
-  connectSocket: (draftId, userId) => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL);
-    
-    socket.on('connect', () => {
-      socket.emit('auth.login', get().playerId);
-      socket.emit('draft.join', draftId, get().team);
-      
-      // Subscribe to events
-      socket.on('turn.start', (turn: Turn) => set({ currentTurn: turn }));
-      socket.on('ban.confirmed', (bans: Ban[]) => set({ bans }));
-    });
-    
-    set({ socket, isConnected: true });
-  },
-  
-  disconnectSocket: () => {
-    get().socket?.disconnect();
-    set({ isConnected: false, socket: null });
-  },
-  
-  selectChampion: (championId) => set({ selectedChampionId: championId }),
-  
-  lockSelection: async () => {
-    await get().socket?.emit('ban.lock', { draftId: get().currentTurn?.draftId });
-    set({ selectedChampionId: null });
-  },
-  
-  skipTurn: async () => {
-    // Handle turn timeout logic...
-  },
-}));
-```
-
-### 6. Docker Compose Configuration
-
-```yaml
-version: '3.8'
-
-services:
-  # Web Frontend
-  web:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api:4000
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    depends_on:
-      - api
-    networks:
-      - app-network
-
-  # API Backend
-  api:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    ports:
-      - "4000:4000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/league_draft?schema=draft_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - PORT=4000
-      - JWT_SECRET=${JWT_SECRET}
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    networks:
-      - app-network
-
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=league_draft
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - app-network
-
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redisdata:/data
-    networks:
-      - app-network
-
-volumes:
-  pgdata:
-  redisdata:
-
-networks:
-  app-network:
-    driver: bridge
-```
-
-### 7. Security Architecture
-
-#### Authentication Flow
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant NestJS as API Gateway
-    participant Redis
-    participant Postgres
-
-    Browser->>NestJS: POST /auth/login {username, password}
-    NestJS->>Redis: Check session token
-    alt Token exists and valid
-        Redis-->>NestJS: Valid session found
-        NestJS-->>Browser: 200 OK with refresh token
-    else No/invalid token
-        NestJS->>Postgres: Verify credentials + bcrypt
-        Postgres-->>NestJS: User record
-        alt Credentials valid
-            NestJS->>Redis: Create JWT session (15 min TTL)
-            Redis-->>NestJS: Token stored
-            NestJS-->>Browser: 200 OK with access token
-        else Invalid credentials
-            NestJS-->>Browser: 401 Unauthorized
-    end
-```
-
-#### Security Layers
-```
-┌─────────────────────────────────────────┐
-│         SECURITY LAYER HIERARCHY        │
-├─────────────────────────────────────────┤
-│                                         │
-│  1. Network Level                       │
-│     └─ Docker network isolation         │
-│     └─ No external ports except web/API │
-│                                          │
-│  2. Application Level                   │
-│     ├─ JWT authentication               │
-│     ├─ CORS: localhost:* only           │
-│     ├─ Rate limiting (5 requests/sec)   │
-│     └─ Input validation on all inputs   │
-│                                          │
-│  3. Data Level                          │
-│     ├─ Prepared statements (Prisma ORM) │
-│     ├─ No SQL injection risk            │
-│     ├─ Password hashing (bcrypt)        │
-│     └─ Session tokens encrypted         │
-│                                          │
-│  4. Infrastructure                      │
-│     ├─ Docker container isolation       │
-│     ├─ Local-only deployment           │
-│     └─ No internet-facing services     │
-│                                          │
-└─────────────────────────────────────────┘
-```
-
-#### API Security Configuration
-```typescript
-// nestjs.config.ts
-@Module({
-  imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET,
-      signOptions: { expiresIn: '15m' }, // Short-lived access tokens
-    }),
-    RateLimitingModule.forRoot({
-      windowMs: 60000,
-      max: 5, // Max 5 requests per minute
-      redisStore: {
-        client: RedisClient.new(),
-        prefix: 'rate_limit:',
-      },
-    }),
-    CORSModule.forRoot({
-      origin: (origin) => {
-        // Only allow localhost for local development/deployment
-        return origin === 'http://localhost:3000' || false;
-      },
-      credentials: true,
-    }),
-  ],
-})
-export class AppConfiguration {}
-
-// Middleware example
-@Injectable()
-export class DraftAccessMiddleware implements NestInterceptor {
-  async intercept(
-    context: ExecutionContext,
-    next: CallHandler
-  ): Promise<Observable<any>> {
-    const request = context.switchToHttp().getRequest();
-    
-    // Extract draft code from route params or headers
-    const draftCode = request.params.code || request.headers['x-draft-code'];
-    
-    // Validate draft exists and user has access
-    const draft = await this.draftService.validateDraftAccess(draftCode, request.user.id);
-    
-    if (!draft) {
-      throw new UnauthorizedHttpException('Invalid draft access');
-    }
-    
-    request.draft = draft;
-    return next.handle();
-  }
-}
-```
-
----
-
-## Technology Stack Summary
-
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Frontend** | Next.js 14 | Full-stack React framework with SSR/SSG |
-| | React 18 | UI library with concurrent rendering |
-| | TypeScript | Type safety for all code |
-| | Socket.IO Client | Real-time WebSocket communication |
-| | Zustand | Lightweight state management |
-| **Backend** | NestJS 10 | Modular Node.js framework |
-| | TypeScript | Type safety |
-| | Prisma ORM | Type-safe database access |
-| | Socket.IO Server | Real-time event broadcasting |
-| | JWT (jsonwebtoken) | Token-based authentication |
-| **Database** | PostgreSQL 15 | Persistent draft state and user data |
-| | Prisma Client 6 | ORM layer for Postgres |
-| **Cache** | Redis 7 | Session state, timers, API caching |
-| **Infrastructure** | Docker Engine | Container runtime |
-| | Docker Compose v3.8 | Multi-container orchestration |
-| | GitHub Actions | CI/CD pipeline |
-| | Riot Games API v4 | Champion data source |
-
----
-
-## Deployment Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     LOCAL DEPLOYMENT ENVIRONMENT                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
-│  │  Frontend    │◄──►│   API        │◄──►│   Database   │       │
-│  │   (Port 3000)│ WebSocket│  (Port 4000)│ SQL  │          │       │
-│  └──────────────┘    └──────────────┘    └──────┬───────┘       │
-│                                                 │               │
-│  ┌──────────────┐                               ▼               │
-│  │   Redis      │◄───────────────────────────────────────────┐   │
-│  │   (Port 6379)│ Cache, Sessions, Timers                   │   │
-│  └──────────────┘                                           │   │
-│                                                             │   │
-│  Network: Docker bridge network                             │   │
-│  External Access: localhost:3000                            │   │
-│  No internet-facing services                                │   │
-│                                                             │   │
-└─────────────────────────────────────────────────────────────────┘
-
-CI/CD Pipeline (GitHub Actions):
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-│  Push to     │───►│  Run Tests   │───►│ Build Docker │
-│   any branch │    │ & Lint       │    │ Containers    │
-└──────────────┘    └──────────────┘    └──────┬───────┘
-                                              │
-                        ┌──────────────────────┼──────────────────────┐
-                        │                      ▼                      │
-                        │              ┌──────────────┐               │
-                        └─────────────►│ Deploy to   │◄──────────────┘
-                                        │Local Docker │  (on merge)
-                                        │    Compose  │
-                                        └─────────────┘
-```
+# Design
+
+## Context
+
+The repository contains a Next.js web application, a NestJS API and Socket.IO gateway, PostgreSQL persistence through Prisma, Redis for live session state and caching, and a Docker Compose runtime. See `proposal.md` for motivation and `specs/draft-system/spec.md` for the behavioral contract.
+
+The implementation supports a single 1v1 draft, not Bo3/Bo5 series management. Champion metadata comes from Riot's public Data Dragon CDN and requires no developer API key. The local deployment permits browser origins on `localhost:3000` and `127.0.0.1:3000`.
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- Keep the server authoritative for turn ownership, legality, timers, and durable draft history.
+- Give participants and spectators low-latency live updates without exposing staged selections.
+- Recover an interrupted Redis session from PostgreSQL and reconnect an interrupted socket without resetting the active turn.
+- Keep the behavior deployable as four local Compose services with no external service dependency other than Data Dragon.
+- Make user-visible rules explicit and testable through the OpenSpec delta.
+
+**Non-Goals:**
+
+- Bo3/Bo5 series state, ban carry-over, match result tracking, or matchmaking.
+- 5v5 drafting, role assignment, champion statistics, or gameplay simulation.
+- Persistent spectator identities or spectator chat.
+- A multi-node distributed timer or event-bus architecture.
+- A production public cloud deployment; the current security boundary is local-only deployment.
+
+## Decisions
+
+### 1. Separate HTTP request/response operations from real-time events
+
+Authentication, registration, draft creation, side claims, the Fearless toggle, and public snapshots use NestJS HTTP endpoints. Active draft actions, turn announcements, timer warnings, and live broadcasts use Socket.IO.
+
+**Rationale:** HTTP is a natural fit for commands with durable outcomes and simple validation. Socket.IO is needed for server-push state changes and reconnection. Keeping the two transports explicit avoids multiplexing every operation through one protocol.
+
+**Alternative considered:** A single WebSocket event API for the entire application. Rejected because it would complicate browser refresh, request error handling, and unauthenticated public snapshots without providing a useful benefit.
+
+### 2. Use PostgreSQL for durable history and Redis for live session state
+
+Prisma stores users, drafts, locked bans, locked picks, and refresh-token identifiers. Redis stores `draft:<id>:session`, including the current turn, pending selections, skip counts, and the live ban/pick history. A missing Redis session is rebuilt from the PostgreSQL draft, ban, and pick rows.
+
+**Rationale:** The database provides transactional and durable history. Redis provides low-latency access to the small mutable state needed by every turn.
+
+**Alternative considered:** PostgreSQL for every live state read. Rejected because it would add unnecessary database traffic and complicate timer-driven updates.
+
+**Trade-off:** Redis session updates are read-modify-write JSON operations. This is acceptable for the fixed one-acting-team 1v1 model; a multi-node or multi-team implementation would require atomic operations or a stronger event/state model.
+
+### 3. Use an explicit server-side turn schedule
+
+A single schedule maps turns 1 through 21 to phase, action type, expected side, and duration:
+
+| Turns | Phase | Order |
+|---|---|---|
+| 1-6 | Ban Phase 1 | Blue, Red, Blue, Red, Blue, Red |
+| 7-12 | Pick Phase 1 | Blue, Red, Red, Blue, Blue, Red |
+| 13-16 | Ban Phase 2 | Red, Blue, Red, Blue |
+| 17-20 | Pick Phase 2 | Red, Blue, Blue, Red |
+| 21 | Finalization | Neither side acts |
+
+Action turns use 30 seconds. Finalization uses 60 seconds. The schedule is shared by timer advancement, public snapshots, and client phase rendering.
+
+**Rationale:** One authoritative table prevents the server, participant UI, and spectator UI from disagreeing about turn order.
+
+**Alternative considered:** Deriving turns from client-side counters. Rejected because clients could drift and would not be authoritative.
+
+### 4. Resolve each turn with an exclusive action claim
+
+A manual lock, voluntary skip, or timer expiry must claim the current turn before it mutates state. If persistence fails after the claim, the claim is released so the timer can resolve the turn. A lock racing the deadline is rejected.
+
+**Rationale:** This prevents double advancement and duplicate locked rows.
+
+**Alternative considered:** Relying only on Redis transaction timing or client button disabling. Rejected because neither prevents two server requests from resolving the same turn.
+
+### 5. Keep timers deadline-based and resumable
+
+Each armed timer stores an absolute deadline. Rejoining during the same turn retains that deadline and returns the remaining seconds. Warnings are emitted at 5, 3, and 1 seconds. A server restart can re-arm the current turn from the persisted turn number, though it cannot reconstruct the pre-restart remaining duration.
+
+**Rationale:** Absolute deadlines prevent reconnects from granting extra time and keep the UI close to the server clock.
+
+**Alternative considered:** Sending a new 30-second countdown on every reconnect. Rejected because it made reconnects exploitable.
+
+**Trade-off:** The in-memory timer and exclusive-claim maps are process-local. A multi-instance deployment would require shared timer ownership and distributed coordination.
+
+### 6. Make timeout resolution deterministic
+
+At expiry, a staged champion is locked. If no champion is staged, a pick turn chooses the first available champion by case-insensitive alphabetical name; a ban turn is skipped. If the champion catalog is unavailable, the pick turn falls back to a skip.
+
+**Rationale:** A timeout must advance the draft instead of leaving the session stalled. Alphabetical fallback is deterministic and easy for every client to understand.
+
+**Alternative considered:** Let the turn remain unresolved. Rejected because one disconnected participant would block the entire draft.
+
+### 7. Separate participant rooms from public spectator rooms
+
+Participants join `draft:<id>`; spectators join `draft:<id>:public`. Public `draft.update` events are sanitized by removing the `pending` map. Spectators do not contribute participant presence and therefore cannot expire a draft.
+
+**Rationale:** Physical room separation makes accidental disclosure harder and keeps spectator reconnects independent from player presence.
+
+**Alternative considered:** Broadcast one snapshot to everyone and rely on clients to hide pending fields. Rejected because clients would still receive private state.
+
+### 8. Resolve side claims atomically in PostgreSQL
+
+The creator chooses Blue or Red when creating the draft. A joining user claims a side with a conditional update that succeeds only while that side is null and the draft is waiting. When both sides are occupied, a second conditional update moves the draft to `IN_PROGRESS` and starts turn 1.
+
+**Rationale:** The conditional update prevents simultaneous joiners from claiming the same side.
+
+**Alternative considered:** Read-then-write side assignment. Rejected because concurrent requests could both pass the read check.
+
+### 9. Use Data Dragon with patch-aware Redis caching
+
+`versions.json` is cached for one hour. The normalized champion payload has no TTL but records its patch, so it remains reusable while that patch is current and is refreshed after a patch change. Fetch attempts use per-request timeouts, three exponential-backoff retries, and a 30-second overall deadline.
+
+**Rationale:** The public CDN needs no API key, and patch-aware caching avoids stale champion names or icons without fetching the full catalog on every request.
+
+**Alternative considered:** The Riot developer API with a configured key. Rejected for the local-only product because it adds credential management while Data Dragon provides the required metadata.
+
+### 10. Authenticate HTTP and participant sockets with the same JWT identity
+
+Access tokens expire after 15 minutes. Refresh tokens are opaque Redis values with a seven-day default TTL and are single-use. HTTP requests use a bearer-token guard. Socket handshakes use the same access token; malformed or expired presented tokens are rejected. A socket with no token is allowed only as a spectator.
+
+**Rationale:** One identity service keeps authorization consistent across transports while allowing read-only public access.
+
+**Alternative considered:** Separate socket sessions and passwords. Rejected because it duplicates authentication state and complicates revocation.
+
+### 11. Keep the frontend state server-driven
+
+The participant client uses a Zustand store fed by Socket.IO events. Staged selections are mirrored locally after a successful acknowledgement, while confirmed bans, picks, turn changes, completion, and expiry come from server broadcasts. Changing rooms clears stale draft state before joining the new room.
+
+**Rationale:** The client can respond immediately to its own selection without becoming the source of truth for legality or confirmed history.
+
+**Alternative considered:** Compute the complete draft state in the browser. Rejected because it duplicates server rules and is vulnerable to drift.
+
+### 12. Treat visual preferences as local client state
+
+The application provides light and dark themes. An inline root-layout script applies a valid saved preference before first paint, and the React theme provider keeps the DOM and application state synchronized.
+
+**Rationale:** Theme preference is local to a browser and has no server-side behavior.
+
+**Alternative considered:** Server-stored user preferences. Rejected because authentication is not required for every page and the preference has no cross-device requirement.
+
+### 13. Use local Docker Compose as the deployment boundary
+
+The Compose stack contains Next.js, NestJS, PostgreSQL, and Redis services. CORS permits only the local web origins, and container configuration passes secrets through environment variables rather than image layers.
+
+**Rationale:** The product is designed for a trusted local or private host and does not need a public ingress, Kubernetes manifests, or a managed database.
+
+**Alternative considered:** A hosted cloud deployment. Deferred because it would require a different threat model, secret-management strategy, and operational model.
+
+## Risks / Trade-offs
+
+- **[No automated test suite exists]** → Add backend unit/integration tests, frontend component tests, and end-to-end draft tests before archive.
+- **[Client and server ban availability can diverge]** → Keep the server rule authoritative and align the ban board so a normal draft permits counter-bans while Fearless mode rejects them.
+- **[README and product claims still mention unsupported series formats and a developer API]** → Reconcile the documentation with Data Dragon and the single-draft scope.
+- **[Process-local timers do not support multiple API replicas]** → Keep the deployment single-instance for now, or move timer ownership to a shared coordinator before scaling horizontally.
+- **[Redis loss rebuilds history but not an exact in-flight deadline]** → Continue persisting the current turn and accept that a process restart re-arms that turn.
+- **[The draft code is the spectator capability URL]** → Treat the code as sensitive, avoid logging it as a secret value, and document that public links expose public draft state.
+- **[Completed drafts remain queryable by code]** → Retain this behavior for results access, while applying an explicit retention policy if the deployment is exposed beyond the local host.
+
+## Migration Plan
+
+1. Configure `JWT_SECRET`, PostgreSQL, Redis, and optional `DATA_DRAGON_BASE_URL` values from the provided environment templates.
+2. Apply the Prisma migration and initialize the `draft_db` PostgreSQL schema.
+3. Start PostgreSQL and Redis, then the API and web services through Docker Compose.
+4. Verify the API health endpoint, champion catalog endpoint, registration/login flow, and a complete local draft before sharing a spectator link.
+5. For rollback, stop the Compose services and restore the previous application revision; PostgreSQL schema changes remain forward-only in the initial migration and should be backed up before later schema upgrades.
