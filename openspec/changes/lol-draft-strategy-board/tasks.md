@@ -56,7 +56,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 6.2 Accept only unlimited same-side swaps between locked picks during finalization, and verify a cross-side or post-expiry swap is rejected
 - [x] 6.3 Persist and broadcast the reordered pick list after every valid swap, and verify both participant clients receive the authoritative order
 - [x] 6.4 Mark the draft complete with a completion timestamp after the finalization timer and broadcast the final bans and picks, and verify participant and public results resolve the completed draft
-- [ ] 6.5 Add backend and end-to-end tests for phase transitions, swap constraints, repeated swaps, timer completion, and durable result retrieval, and verify the finalization test suite passes
+- [x] 6.5 Add backend and end-to-end tests for phase transitions, swap constraints, repeated swaps, timer completion, and durable result retrieval, and verify the finalization test suite passes
 
 ## 7. Public spectator viewing
 
