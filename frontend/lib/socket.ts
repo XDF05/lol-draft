@@ -99,7 +99,6 @@ export interface DraftSessionSnapshot {
   draftId: number;
   code: string;
   status: string;
-  fearlessMode: boolean;
   currentTurn: number;
   bans: BanConfirmedEntry[];
   picks: PickConfirmedEntry[];

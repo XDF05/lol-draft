@@ -77,7 +77,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 8.5 Show connection, reconnect, ping-latency, and expired-session states, and verify a dropped socket preserves the last confirmed draft state
 - [x] 8.6 Add a site-wide light/dark theme with pre-paint restoration and browser-storage persistence, and verify a saved preference is applied on the next visit
 - [ ] 8.7 Add frontend component and accessibility tests for champion states, keyboard controls, responsive behavior, error feedback, and theme restoration, and verify the frontend test suite passes
-- [ ] 8.8 Remove the Fearless toggle from the draft interface and verify the waiting room no longer offers the mode
+- [x] 8.8 Remove the Fearless toggle from the draft interface and verify the waiting room no longer offers the mode
 
 ## 9. Security hardening
 

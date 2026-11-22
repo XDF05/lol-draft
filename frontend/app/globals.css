@@ -984,46 +984,6 @@ input::placeholder {
 
 /* Draft utility surfaces ------------------------------------------------ */
 
-.fearless-banner {
-  padding: 0.65rem 0.8rem;
-  margin-bottom: 0.8rem;
-  border-radius: 0.55rem;
-  background: #7f1d1d;
-  color: #ffffff;
-  font-weight: 750;
-  letter-spacing: 0.04em;
-  text-align: center;
-}
-
-.fearless-toggle {
-  margin-bottom: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.8rem;
-  background: var(--surface);
-}
-
-.fearless-toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.fearless-state {
-  padding: 0.14rem 0.55rem;
-  border-radius: 999px;
-  background: var(--surface-subtle);
-  color: var(--text-soft);
-  font-size: 0.75rem;
-  font-weight: 750;
-}
-
-.fearless-state.on {
-  background: #7f1d1d;
-  color: #ffffff;
-}
-
 .modal-overlay {
   position: fixed;
   inset: 0;

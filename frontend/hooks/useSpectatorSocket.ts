@@ -37,7 +37,6 @@ export const SPECTATOR_RECONNECT_GRACE_SECONDS = 30;
 export interface SpectatorDraftState {
   draftId: number | null;
   status: string | null;
-  fearlessMode: boolean | null;
   bans: BanConfirmedEntry[] | null;
   picks: PickConfirmedEntry[] | null;
   currentTurnInfo: TurnStartPayload | null;
@@ -55,7 +54,6 @@ export interface SpectatorDraftState {
 const INITIAL_STATE: SpectatorDraftState = {
   draftId: null,
   status: null,
-  fearlessMode: null,
   bans: null,
   picks: null,
   currentTurnInfo: null,
@@ -201,7 +199,6 @@ export function useSpectatorSocket(
         ...s,
         draftId: snapshot.draftId,
         status: snapshot.status,
-        fearlessMode: snapshot.fearlessMode,
         bans: snapshot.bans,
         picks: snapshot.picks,
       }));

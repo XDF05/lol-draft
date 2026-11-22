@@ -53,8 +53,6 @@ interface DraftStoreState {
   draftStatus: string | null;
   /** This client's assigned side (from the draft.join acknowledgement). */
   myTeam: Team | null;
-  /** Fearless mode flag, kept in sync via draft.update snapshots. */
-  fearlessMode: boolean;
 
   // --- Live draft state (authoritative, from broadcasts) ----------------------
   currentTurnInfo: TurnStartPayload | null;
@@ -126,7 +124,6 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
   draftCode: null,
   draftStatus: null,
   myTeam: null,
-  fearlessMode: false,
 
   currentTurnInfo: null,
   bans: [],
@@ -169,7 +166,6 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       draftId: snapshot.draftId,
       draftCode: snapshot.code,
       draftStatus: snapshot.status,
-      fearlessMode: snapshot.fearlessMode,
       bans: snapshot.bans,
       picks: snapshot.picks,
       pending: snapshot.pending,
@@ -443,7 +439,6 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       draftCode: null,
       draftStatus: null,
       myTeam: null,
-      fearlessMode: false,
       currentTurnInfo: null,
       bans: [],
       picks: [],

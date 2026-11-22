@@ -24,7 +24,6 @@ export interface DraftView {
   id: number;
   code: string;
   status: string;
-  fearlessMode: boolean;
   currentTurn: number;
   bluePlayer: DraftParticipant | null;
   redPlayer: DraftParticipant | null;
@@ -78,21 +77,6 @@ export async function joinDraftByCode(
   const { data } = await api.post<JoinDraftResponse>(
     `/draft/${encodeURIComponent(code)}/join`,
     side ? { side } : {},
-  );
-  return data;
-}
-
-/**
- * Toggle Fearless Drafting mode (T-013). The API rejects the change once
- * the draft has started; the UI only offers it while waiting for players.
- */
-export async function setFearlessMode(
-  code: string,
-  fearless: boolean,
-): Promise<DraftView> {
-  const { data } = await api.post<DraftView>(
-    `/draft/${encodeURIComponent(code)}/fearless-toggle`,
-    { fearless },
   );
   return data;
 }

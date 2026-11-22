@@ -158,7 +158,6 @@ export default function SpectatorView({ code }: { code: string }) {
   const picks = live.picks ?? snapshot?.picks ?? [];
   const turn = live.currentTurnInfo ?? snapshot?.turn ?? null;
   const completedAt = live.completedAt ?? snapshot?.completedAt ?? null;
-  const fearlessMode = live.fearlessMode ?? snapshot?.fearlessMode ?? false;
 
 
   const header = (
@@ -332,22 +331,6 @@ export default function SpectatorView({ code }: { code: string }) {
           <strong>Red:</strong> {snapshot?.redPlayer?.username ?? '—'}
         </p>
       </div>
-
-      {fearlessMode && (
-        <p
-          style={{
-            margin: '0 0 1rem',
-            padding: '0.5rem 0.75rem',
-            borderRadius: '0.375rem',
-            background: 'var(--warning-soft)',
-            color: 'var(--warning)',
-            fontWeight: 600,
-          }}
-        >
-          Fearless Draft — picked champions stay locked for the rest of the
-          draft.
-        </p>
-      )}
 
       <div style={cardStyle}>
         {turn ? (
