@@ -66,7 +66,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 7.4 Preserve the spectator view across a short disconnection and report the end of a connection that remains offline for 30 seconds, and verify a spectator disconnect cannot expire the draft
 - [x] 7.5 Remove expired drafts and their dependent history after the retention period, and verify stale public codes resolve as not found
 - [x] 7.6 Add end-to-end tests for public access, state sanitization, live updates, reconnect behavior, completed results, and invalid codes, and verify the spectator test suite passes
-- [ ] 7.7 Document how to create and share a spectator link and which draft details are public, and verify the instructions match the current routes
+- [x] 7.7 Document how to create and share a spectator link and which draft details are public, and verify the instructions match the current routes
 
 ## 8. Interface feedback and accessibility
 
