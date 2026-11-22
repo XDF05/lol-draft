@@ -515,6 +515,7 @@ input::placeholder {
 .draft-pick-slot {
   display: grid;
   grid-template-columns: 1.5rem 3rem minmax(0, 1fr);
+  grid-template-areas: 'pick-label pick-portrait pick-name';
   align-items: center;
   gap: 0.4rem;
   min-height: 3.7rem;
@@ -526,6 +527,7 @@ input::placeholder {
 
 .draft-pick-rail.red .draft-pick-slot {
   grid-template-columns: minmax(0, 1fr) 3rem 1.5rem;
+  grid-template-areas: 'pick-name pick-portrait pick-label';
 }
 
 .draft-pick-slot.empty {
@@ -533,6 +535,7 @@ input::placeholder {
 }
 
 .draft-pick-label {
+  grid-area: pick-label;
   color: var(--board-muted);
   font-size: 0.72rem;
   font-weight: 800;
@@ -545,6 +548,7 @@ input::placeholder {
 .draft-pick-portrait,
 .draft-empty-portrait {
   display: grid;
+  grid-area: pick-portrait;
   width: 3rem;
   height: 3rem;
   place-items: center;
@@ -568,16 +572,13 @@ input::placeholder {
 }
 
 .draft-pick-name {
+  grid-area: pick-name;
   overflow: hidden;
   color: var(--board-text);
   font-size: 0.68rem;
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.draft-pick-rail.red .draft-pick-name {
-  display: none;
 }
 
 .phase-panel {
@@ -1168,12 +1169,14 @@ input::placeholder {
 
   .draft-pick-slot {
     grid-template-columns: 1rem 2.5rem;
+    grid-template-areas: 'pick-label pick-portrait';
     gap: 0.25rem;
     padding: 0.25rem;
   }
 
   .draft-pick-rail.red .draft-pick-slot {
     grid-template-columns: 2.5rem 1rem;
+    grid-template-areas: 'pick-portrait pick-label';
   }
 
   .draft-pick-portrait,
