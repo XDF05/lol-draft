@@ -32,10 +32,10 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 4.1 Create waiting drafts with an unambiguous seven-character code and creator-selected side, and verify the persisted draft begins in `WAITING_FOR_PLAYERS`
 - [x] 4.2 Claim a remaining side atomically and start turn 1 when both sides are occupied, and verify simultaneous claims cannot assign one side twice
 - [x] 4.3 Fetch participant draft state and remove waiting drafts that remain incomplete for five minutes, and verify stale waiting codes resolve as not found
-- [x] 4.4 Allow a participant to change Fearless mode only while the draft is waiting, and verify a post-start toggle is rejected
+- [ ] 4.4 Remove Fearless mode configuration from the draft lifecycle (toggle endpoint, session flag, persistence column) and verify no Fearless control remains on the backend
 - [x] 4.5 Implement the waiting-room, join, participant, complete, and expired room states with a shareable spectator link, and verify each state renders its corresponding outcome
-- [ ] 4.6 Add backend integration tests for create, join races, idempotent rejoin, Fearless toggling, waiting cleanup, and completed-state lookup, and verify the room lifecycle test suite passes
-- [ ] 4.7 Document draft creation, code sharing, side assignment, and Fearless configuration, and verify the instructions work in a fresh local environment
+- [ ] 4.6 Add backend integration tests for create, join races, idempotent rejoin, waiting cleanup, and completed-state lookup, and verify the room lifecycle test suite passes
+- [ ] 4.7 Document draft creation, code sharing, and side assignment, and verify the instructions work in a fresh local environment
 
 ## 5. Real-time turn engine
 
@@ -47,7 +47,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 5.6 Enforce banned and picked champion availability on the server for selections and locks, and verify invalid champions leave the turn unresolved
 - [x] 5.7 Resolve an expired turn deterministically by locking a staged champion, choosing the first available champion for an unstaged pick, or skipping an unstaged ban, and verify each branch advances exactly once
 - [x] 5.8 Clear stale participant state when switching to a different draft room, and verify the new room never renders the previous room's bans, picks, or turn
-- [ ] 5.9 Align the frontend ban-board availability rule with the server-authoritative Fearless rule, and verify a normal draft permits counter-bans while Fearless mode rejects them
+- [ ] 5.9 Enforce one ban rule on the server and the ban board — a champion that is already banned or already picked is never bannable — and verify the server rejects the selection and the board disables the card
 - [ ] 5.10 Add backend unit and integration tests for turn ownership, legality, timer races, timeout fallback, reconnect behavior, and Redis-session rebuilding, and verify the turn engine test suite passes
 
 ## 6. Finalization and completion
@@ -77,6 +77,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 8.5 Show connection, reconnect, ping-latency, and expired-session states, and verify a dropped socket preserves the last confirmed draft state
 - [x] 8.6 Add a site-wide light/dark theme with pre-paint restoration and browser-storage persistence, and verify a saved preference is applied on the next visit
 - [ ] 8.7 Add frontend component and accessibility tests for champion states, keyboard controls, responsive behavior, error feedback, and theme restoration, and verify the frontend test suite passes
+- [ ] 8.8 Remove the Fearless toggle from the draft interface and verify the waiting room no longer offers the mode
 
 ## 9. Security hardening
 
@@ -112,7 +113,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 12.1 Create the initial README with the project overview, repository layout, services, and quickstart, and verify the documented service names and ports match Compose
 - [ ] 12.2 Reconcile the README with the implemented single-draft scope and Data Dragon integration, and verify it no longer claims Bo3/Bo5 or a Riot developer API key
 - [ ] 12.3 Document prerequisites, environment configuration, database initialization, and local startup, and verify the commands work from a clean checkout
-- [ ] 12.4 Write the participant guide for room creation, side selection, bans, picks, timers, Fearless mode, finalization, and public viewing, and verify each step matches the interface
+- [ ] 12.4 Write the participant guide for room creation, side selection, bans, picks, timers, finalization, and public viewing, and verify each step matches the interface
 - [ ] 12.5 Add troubleshooting for invalid codes, expired drafts, unavailable champion data, authentication failures, and connection loss, and verify each remedy resolves the documented failure
 - [ ] 12.6 Document the HTTP and Socket.IO API contracts, including authentication, event payloads, and error shapes, and verify examples match the implemented routes and types
 - [ ] 12.7 Add a documentation link and command check, and verify all local links and documented commands resolve successfully
