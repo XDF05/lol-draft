@@ -1,7 +1,11 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import type { Server } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
-import { DraftSessionService } from './draft-session.service';
+import { RiotApiService } from '../champions/riot-api.service';
+import {
+  DraftSessionService,
+  type DraftSessionState,
+} from './draft-session.service';
 import {
   FINALIZATION_TURN,
   MAX_TURNS,
@@ -55,8 +59,9 @@ interface ArmedTurnTimer {
  *   join handshake tell the returning client how much time is really left.
  * - `timer.warning` fires at 5s / 3s / 1s for the warning UI states.
  * - On expiry the turn is auto-resolved (R-009): a pending selection is
- *   locked (persisted to PostgreSQL), otherwise the acting team's turn is
- *   skipped — then the turn advances.
+ *   locked (persisted to PostgreSQL). A pick turn with nothing staged
+ *   defaults to the first available champion in alphabetical order; a ban
+ *   turn with nothing staged is skipped. Then the turn advances.
  * - Turn advancement persists `currentTurn` to the draft row, updates the
  *   Redis session and announces `turn.end` → `turn.start` (+ a
  *   `phase.*.start` marker on phase boundaries).
@@ -91,6 +96,7 @@ export class TurnManagerService implements OnModuleDestroy {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sessions: DraftSessionService,
+    private readonly champions: RiotApiService,
   ) {}
 
   /** The gateway hands its Socket.IO server over once initialised. */
@@ -303,17 +309,67 @@ export class TurnManagerService implements OnModuleDestroy {
         );
       }
     } else {
-      const state = await this.sessions.recordSkip(draftId, team);
-      this.emitTo(draftId, 'draft.update', state);
-      this.logger.log(
-        `auto.skip draft=${draftId} team=${team} turn=${turn.turnNumber}`,
-      );
+      // Nothing was staged by the deadline. A pick turn defaults to the
+      // first available champion in alphabetical order; a ban turn is
+      // skipped as before.
+      const fallbackId =
+        turn.actionType === 'PICK'
+          ? await this.firstAvailableChampion(session)
+          : null;
+      if (fallbackId) {
+        await this.sessions.setPending(draftId, team, 'PICK', fallbackId);
+        autoLockedChampionId = await this.autoLockPick(
+          draftId,
+          team,
+          turn.turnNumber,
+          fallbackId,
+        );
+        this.logger.log(
+          `auto.pick draft=${draftId} team=${team} champion=${fallbackId} turn=${turn.turnNumber}`,
+        );
+      } else {
+        const state = await this.sessions.recordSkip(draftId, team);
+        this.emitTo(draftId, 'draft.update', state);
+        this.logger.log(
+          `auto.skip draft=${draftId} team=${team} turn=${turn.turnNumber}`,
+        );
+      }
     }
 
     this.emitTo(draftId, 'timer.expired', {
       autoLockedChampionId,
     } satisfies TimerExpiredPayload);
     await this.advanceTurn(draftId);
+  }
+
+  /**
+   * First available champion by name for a pick turn that timed out with no
+   * selection: not banned and not picked yet. Returns null when the pool is
+   * unavailable (the turn then falls back to a skip) or nothing is left.
+   */
+  private async firstAvailableChampion(
+    state: DraftSessionState,
+  ): Promise<string | null> {
+    try {
+      const { data } = await this.champions.getChampions();
+      const taken = new Set([
+        ...state.bans.map((ban) => ban.championId),
+        ...state.picks.map((pick) => pick.championId),
+      ]);
+      const first = data
+        .filter((champion) => !taken.has(champion.id))
+        .sort((a, b) =>
+          a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }),
+        )[0];
+      return first?.id ?? null;
+    } catch (err) {
+      this.logger.warn(
+        `auto.pick champion fallback failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return null;
+    }
   }
 
   /** Timeout with a pending ban: lock it, persist the Ban row, broadcast. */
