@@ -581,6 +581,10 @@ input::placeholder {
   white-space: nowrap;
 }
 
+.draft-pick-rail.red .draft-pick-name {
+  text-align: right;
+}
+
 .phase-panel {
   color: var(--board-text);
 }

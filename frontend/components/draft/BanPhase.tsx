@@ -90,10 +90,6 @@ export default function BanPhase() {
   // Ban Phase 2 (R-005) runs Red-first and allows counter-bans against
   // Phase 1 picks (unless Fearless mode), tracked as ban #4/#5 per team.
   const isBanPhase2 = currentTurnInfo?.phase === 'BANNING_P2';
-  const myTeamBanCount = myTeam
-    ? bans.filter((ban) => ban.team === myTeam).length
-    : 0;
-  const nextBanNumber = myTeamBanCount + 1;
 
   async function handleLock() {
     if (!myPending?.championId || locking) {
@@ -138,18 +134,6 @@ export default function BanPhase() {
         </strong>
         <TimerDisplay />
       </div>
-
-      {isMyTurn && (
-        <p style={{ margin: '0.5rem 0 0', color: 'var(--board-muted)', fontSize: '0.85rem' }}>
-          This is {myTeam?.toLowerCase()} ban #{nextBanNumber} of 5.
-        </p>
-      )}
-
-      {selectedId && (
-        <p style={{ margin: '0.5rem 0 0', color: accent }}>
-          Staged: <strong>{selectedId}</strong> — lock it in or pick another.
-        </p>
-      )}
 
       <ChampionPool
         champions={champions}
