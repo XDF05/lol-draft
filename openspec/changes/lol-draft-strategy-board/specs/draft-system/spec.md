@@ -29,15 +29,15 @@ The system SHALL issue a short-lived access token and a single-use refresh token
 - **THEN** the system rejects the request and returns no replacement tokens
 
 ### Requirement: Participant-only draft access
-The system SHALL require a valid authenticated identity for creating, viewing, joining, and changing the configuration of a participant draft room.
+The system SHALL require a valid authenticated identity for creating, viewing, and joining a participant draft room, and SHALL allow only the users assigned to a side to act on that draft.
 
 #### Scenario: Unauthenticated participant request
 - **WHEN** an unauthenticated client requests a participant-only draft operation
 - **THEN** the system rejects the request without exposing or changing draft state
 
 #### Scenario: Non-participant draft mutation
-- **WHEN** an authenticated user who is not assigned to either side attempts to change the draft
-- **THEN** the system rejects the mutation
+- **WHEN** an authenticated user who is not assigned to either side attempts to act in a live draft
+- **THEN** the system rejects the action without changing the draft
 
 ### Requirement: Draft room creation
 The system SHALL let an authenticated user create a waiting draft, assign that user to the selected side, and return an unambiguous seven-character draft code.
@@ -91,18 +91,14 @@ The system SHALL run the specified asymmetric pick order for Pick Phases 1 and 2
 - **THEN** turns 17 through 20 assign picks in the order Red, Blue, Blue, Red
 
 ### Requirement: Ban champion availability
-The system SHALL reject a champion that is already banned, SHALL permit a locked pick to be counter-banned in Ban Phase 2 while Fearless mode is disabled, and SHALL reject that counter-ban while Fearless mode is enabled.
+The system SHALL reject a champion that is already banned or already locked in the current draft.
 
 #### Scenario: Duplicate ban
 - **WHEN** a player attempts to ban a champion already banned in the draft
 - **THEN** the system rejects the selection
 
-#### Scenario: Normal-mode counter-ban
-- **WHEN** Fearless mode is disabled and a player attempts to ban a champion locked by the opponent
-- **THEN** the system accepts the ban if that champion has not already been banned
-
-#### Scenario: Fearless-mode counter-ban
-- **WHEN** Fearless mode is enabled and a player attempts to ban a champion locked by the opponent
+#### Scenario: Ban of a locked pick
+- **WHEN** a player attempts to ban a champion already locked by a pick in the draft
 - **THEN** the system rejects the selection as already picked
 
 ### Requirement: Pick champion availability
@@ -148,17 +144,6 @@ The system SHALL give each ban or pick action a 30-second server-authoritative t
 #### Scenario: Reconnect during a turn
 - **WHEN** a participant reconnects while a turn is active
 - **THEN** the system returns the current turn and remaining countdown rather than granting a fresh timer
-
-### Requirement: Fearless mode configuration
-The system SHALL allow a participant to enable or disable Fearless mode only while the draft is waiting for players, and SHALL make the choice permanent once the draft starts.
-
-#### Scenario: Toggle before start
-- **WHEN** a participant changes Fearless mode while the draft is waiting
-- **THEN** the system persists the new setting for both participants
-
-#### Scenario: Toggle after start
-- **WHEN** a participant attempts to change Fearless mode after the draft has started
-- **THEN** the system rejects the change and preserves the locked setting
 
 ### Requirement: Finalization team-internal swaps
 The system SHALL allow unlimited swaps between two locked picks belonging to the requesting participant's side during the 60-second finalization window, without requesting approval from the opposing side.

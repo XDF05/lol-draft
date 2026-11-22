@@ -28,7 +28,7 @@ The implementation supports a single 1v1 draft, not Bo3/Bo5 series management. C
 
 ### 1. Separate HTTP request/response operations from real-time events
 
-Authentication, registration, draft creation, side claims, the Fearless toggle, and public snapshots use NestJS HTTP endpoints. Active draft actions, turn announcements, timer warnings, and live broadcasts use Socket.IO.
+Authentication, registration, draft creation, side claims, and public snapshots use NestJS HTTP endpoints. Active draft actions, turn announcements, timer warnings, and live broadcasts use Socket.IO.
 
 **Rationale:** HTTP is a natural fit for commands with durable outcomes and simple validation. Socket.IO is needed for server-push state changes and reconnection. Keeping the two transports explicit avoids multiplexing every operation through one protocol.
 
@@ -147,7 +147,7 @@ The Compose stack contains Next.js, NestJS, PostgreSQL, and Redis services. CORS
 ## Risks / Trade-offs
 
 - **[No automated test suite exists]** → Add backend unit/integration tests, frontend component tests, and end-to-end draft tests before archive.
-- **[Client and server ban availability can diverge]** → Keep the server rule authoritative and align the ban board so a normal draft permits counter-bans while Fearless mode rejects them.
+- **[Client and server ban availability can diverge]** → Keep one ban rule authoritative on the server — a champion that is already banned or already picked is never bannable — and align the ban board with it.
 - **[README and product claims still mention unsupported series formats and a developer API]** → Reconcile the documentation with Data Dragon and the single-draft scope.
 - **[Process-local timers do not support multiple API replicas]** → Keep the deployment single-instance for now, or move timer ownership to a shared coordinator before scaling horizontally.
 - **[Redis loss rebuilds history but not an exact in-flight deadline]** → Continue persisting the current turn and accept that a process restart re-arms that turn.
