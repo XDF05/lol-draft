@@ -74,14 +74,15 @@ export default function BanPhase() {
 
   const bannedIds = new Set(bans.map((ban) => ban.championId));
   const pickedIds = new Set(picks.map((pick) => pick.championId));
-  // Picked champions are never bannable in any phase (fearless or not).
+  // Picked champions are never bannable in any phase (fearless or not), but
+  // they must stay labelled "Picked" rather than looking like a ban.
   const championStatus = new Map(
     champions.map((champion) => {
       if (bannedIds.has(champion.id)) {
         return [champion.id, 'banned'] as const;
       }
       if (pickedIds.has(champion.id)) {
-        return [champion.id, 'banned'] as const;
+        return [champion.id, 'picked'] as const;
       }
       return [champion.id, 'available'] as const;
     }),
@@ -137,24 +138,6 @@ export default function BanPhase() {
         </strong>
         <TimerDisplay />
       </div>
-
-      {isBanTurn && isBanPhase2 && currentTurnInfo?.expectedTeam === 'RED' && (
-        <p
-          style={{
-            margin: '0.5rem 0 0',
-            padding: '0.5rem 0.75rem',
-            borderRadius: '0.375rem',
-            background: 'var(--danger-soft)',
-            color: 'var(--danger)',
-            fontWeight: 600,
-          }}
-        >
-          Counter-pick opportunity{' '}
-          <span style={{ fontWeight: 400 }}>
-            — Red can answer Blue&apos;s Phase 1 picks with counter-bans.
-          </span>
-        </p>
-      )}
 
       {isMyTurn && (
         <p style={{ margin: '0.5rem 0 0', color: 'var(--board-muted)', fontSize: '0.85rem' }}>
