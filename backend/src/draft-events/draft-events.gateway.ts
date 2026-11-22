@@ -206,14 +206,20 @@ export class DraftEventsGateway
     @MessageBody() data: DraftJoinDto,
   ): Promise<{ ok: true; draftId: number; team: Team; room: string }> {
     const user = this.requireUser(client);
-    if (client.data.draftId) {
-      throw new WsException('Already in a draft room — leave it first');
-    }
 
     const draft = await this.prismaDraftByCode(data.code);
     const team = this.teamOf(draft.blueTeamPlayerId, draft.redTeamPlayerId, user);
     if (data.team && data.team !== team) {
       throw new WsException(`You are assigned to the ${team} side`);
+    }
+
+    // Switching drafts on the same socket (e.g. creating a new one after the
+    // previous draft completed): leave the old room automatically instead of
+    // rejecting the join, so the client never needs a page reload. Joining
+    // the room we are already in is a no-op resync.
+    const previousDraftId = client.data.draftId as number | undefined;
+    if (previousDraftId !== undefined && previousDraftId !== draft.id) {
+      await this.leaveDraftRoom(client, previousDraftId, user);
     }
 
     const session = await this.sessions.getOrCreate(draft.id);
@@ -257,22 +263,42 @@ export class DraftEventsGateway
       return { ok: true };
     }
 
+    await this.leaveDraftRoom(client, draftId, user);
+    return { ok: true };
+  }
+
+  /**
+   * Leave a draft room: drop presence, clear the team's pending selection and
+   * detach health tracking. Shared by `draft.leave` and by `draft.join` when
+   * the socket moves to a different draft.
+   */
+  private async leaveDraftRoom(
+    client: Socket,
+    draftId: number,
+    user: SocketUser,
+  ): Promise<void> {
     this.untrackPresence(draftId, user.id, client.id);
 
     const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
     if (draft) {
-      const team = this.teamOf(
-        draft.blueTeamPlayerId,
-        draft.redTeamPlayerId,
-        user,
-      );
-      await this.sessions.clearPending(draftId, team);
+      const isParticipant =
+        draft.blueTeamPlayerId === user.id || draft.redTeamPlayerId === user.id;
+      const isActive =
+        draft.status === 'IN_PROGRESS' ||
+        draft.status === 'WAITING_FOR_PLAYERS';
+      if (isParticipant && isActive) {
+        const team = this.teamOf(
+          draft.blueTeamPlayerId,
+          draft.redTeamPlayerId,
+          user,
+        );
+        await this.sessions.clearPending(draftId, team);
+      }
       await client.leave(draftRoom(draftId));
       this.health.detachFromDraft(client.id, draftId);
     }
 
     delete client.data.draftId;
-    return { ok: true };
   }
 
   // -------------------------------------------------------------------------

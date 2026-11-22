@@ -238,6 +238,18 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
   // --- Emit wrappers -----------------------------------------------------------
 
   joinDraft: async (code) => {
+    // Moving to a different draft (e.g. creating a new one after the previous
+    // draft completed): drop the old room's bans/picks/turn so stale state can
+    // never render while the new snapshot loads. The server leaves the old
+    // room automatically on the new `draft.join`.
+    const current = get();
+    if (
+      (current.draftId !== null || current.draftCode !== null) &&
+      current.draftCode !== code
+    ) {
+      get().resetSession();
+    }
+
     const socket = getDraftSocket();
     if (!socket.connected) {
       set({ connectionState: 'connecting' });

@@ -102,6 +102,21 @@ function CopySpectatorLinkButton({ code }: { code: string }) {
   );
 }
 
+/** Shown while the socket session for this room is still being established. */
+function JoiningDraft({ onRetry }: { onRetry: () => void }) {
+  return (
+    <main className="page-shell narrow">
+      <h1>Draft room</h1>
+      <div style={cardStyle}>
+        <p>Joining draft…</p>
+        <button type="button" onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    </main>
+  );
+}
+
 /** Final pick order shown once Finalization locks the draft (T-014). */
 function DraftResults({
   picks,
@@ -265,8 +280,9 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   // The HTTP view is updated by the toggling client; the socket-fed store
   // keeps the opponent's screen in sync via draft.update broadcasts.
-  const fearlessActive =
-    view.fearlessMode || (draftId === view.id && storeFearlessMode);
+  const synced = draftId === view.id;
+  const retryJoin = () => void socketJoinDraft(code);
+  const fearlessActive = view.fearlessMode || (synced && storeFearlessMode);
 
   if (status === 'EXPIRED') {
     return (
@@ -277,7 +293,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
             This draft has expired.
           </p>
           <p className="muted">
-            {draftExpired ??
+            {(synced ? draftExpired : null) ??
               'A player was disconnected for too long, so the draft expired.'}
           </p>
           <p style={{ marginTop: '1rem' }}>
@@ -291,6 +307,11 @@ export default function DraftRoomPage({ code }: { code: string }) {
   }
 
   if (status === 'COMPLETE') {
+    // Participants wait for this room's snapshot before showing results, so a
+    // previously completed draft's picks can never leak into the new room.
+    if (isParticipant && !synced) {
+      return <JoiningDraft onRetry={retryJoin} />;
+    }
     return (
       <main className="page-shell narrow">
         <h1>Draft room</h1>
@@ -395,6 +416,11 @@ export default function DraftRoomPage({ code }: { code: string }) {
           </div>
         </main>
       );
+    }
+
+    // Never render the live board from another room's store state.
+    if (!synced) {
+      return <JoiningDraft onRetry={retryJoin} />;
     }
 
     return (
