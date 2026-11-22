@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "test": "jest",
+    "test:ci": "jest --ci",
     "start": "node dist/main.js",
     "start:dev": "tsc-watch -p tsconfig.json --onSuccess \"node dist/main.js\"",
     "db:migrate": "prisma migrate deploy",
@@ -30,10 +32,16 @@
     "socket.io": "^4.8.4"
   },
   "devDependencies": {
+    "@nestjs/testing": "^10.4.22",
     "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.14",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.14.0",
+    "@types/supertest": "^6.0.3",
+    "jest": "^29.7.0",
     "prisma": "^7.10.1",
+    "supertest": "^6.3.4",
+    "ts-jest": "^29.4.15",
     "tsc-watch": "^6.2.0",
     "typescript": "^5.5.0"
   },
