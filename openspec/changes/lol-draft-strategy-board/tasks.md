@@ -18,7 +18,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 2.4 Apply the Redis-backed five-attempt login limit and the Socket.IO JWT handshake guard, and verify invalid presented socket credentials are disconnected
 - [x] 2.5 Implement the frontend login, registration, auth context, bearer interceptor, refresh-on-401 flow, and protected routes, and verify a refreshed session restores the current user
 - [x] 2.6 Add backend unit and integration tests for registration, login, token expiration, refresh rotation, and rate limiting, and verify the auth test suite passes
-- [ ] 2.7 Document account and session behavior, and verify the documented login, registration, and refresh flows match the API routes
+- [x] 2.7 Document account and session behavior, and verify the documented login, registration, and refresh flows match the API routes
 
 ## 3. Champion catalog
 
