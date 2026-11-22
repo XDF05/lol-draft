@@ -25,7 +25,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 3.1 Fetch the latest patch and normalized champion names and icon URLs from Data Dragon, and verify the API response contains identifier, name, and icon URL fields
 - [x] 3.2 Cache the patch-aware champion catalog in Redis with version checks, retry/backoff, and a bounded timeout, and verify a cache hit does not refetch the champion payload
 - [x] 3.3 Load and share the champion pool in the frontend with loading, ready, and unavailable states, and verify the pool can be searched by champion name
-- [ ] 3.4 Add backend tests for cache hits, patch changes, retries, corrupt cache entries, and total CDN failure, and verify the champion service test suite passes
+- [x] 3.4 Add backend tests for cache hits, patch changes, retries, corrupt cache entries, and total CDN failure, and verify the champion service test suite passes
 
 ## 4. Draft room lifecycle
 
