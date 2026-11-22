@@ -47,7 +47,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 5.6 Enforce banned and picked champion availability on the server for selections and locks, and verify invalid champions leave the turn unresolved
 - [x] 5.7 Resolve an expired turn deterministically by locking a staged champion, choosing the first available champion for an unstaged pick, or skipping an unstaged ban, and verify each branch advances exactly once
 - [x] 5.8 Clear stale participant state when switching to a different draft room, and verify the new room never renders the previous room's bans, picks, or turn
-- [ ] 5.9 Enforce one ban rule on the server and the ban board — a champion that is already banned or already picked is never bannable — and verify the server rejects the selection and the board disables the card
+- [x] 5.9 Enforce one ban rule on the server and the ban board — a champion that is already banned or already picked is never bannable — and verify the server rejects the selection and the board disables the card
 - [ ] 5.10 Add backend unit and integration tests for turn ownership, legality, timer races, timeout fallback, reconnect behavior, and Redis-session rebuilding, and verify the turn engine test suite passes
 
 ## 6. Finalization and completion

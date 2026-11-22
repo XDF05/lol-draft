@@ -4,11 +4,6 @@ import { useState, type CSSProperties } from 'react';
 import { useToast } from '../common/Toast';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
-import type {
-  BanConfirmedEntry,
-  PickConfirmedEntry,
-} from '../../lib/socket';
-import type { Champion } from '../../lib/types';
 import ChampionPool from './ChampionPool';
 import TimerDisplay from './TimerDisplay';
 import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
@@ -16,36 +11,15 @@ import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
 /**
  * Ban Phase selection board (T-009), shared by the Blue and Red teams.
  *
- * - The champion pool is filtered through `availableForBan` (banned
- *   champions are always out; picked champions only in Fearless mode,
- *   R-005/R-011 — the server enforces the same rules).
+ * - One ban rule, shared with the server: a champion that is already banned
+ *   or already picked is never bannable. Such champions stay visible in the
+ *   pool, labelled, but their card is disabled.
  * - Selection stages a *pending* ban locally; the opponent only sees it
  *   once `ban.confirmed` broadcasts the lock (R-009).
  * - The countdown ticks locally from the `turn.start` payload and resyncs
  *   whenever the server's `timer.warning` fires at 5s / 3s / 1s. The server
  *   auto-locks (or skips) at zero, so the UI only mirrors state.
  */
-
-/**
- * Champions still selectable for a ban: everything except banned champions
- * (and, in Fearless mode, picked ones — banning a picked champion is then
- * forbidden). Pure so the filter rules can be checked without a renderer.
- */
-export function availableForBan(
-  champions: readonly Champion[],
-  bans: readonly BanConfirmedEntry[],
-  picks: readonly PickConfirmedEntry[],
-  fearlessMode: boolean,
-): Champion[] {
-  const banned = new Set(bans.map((b) => b.championId));
-  const picked = fearlessMode
-    ? new Set(picks.map((p) => p.championId))
-    : null;
-  return champions.filter(
-    (champion) =>
-      !banned.has(champion.id) && !(picked?.has(champion.id) ?? false),
-  );
-}
 
 export default function BanPhase() {
   const myTeam = useDraftStore((s) => s.myTeam);
@@ -74,8 +48,8 @@ export default function BanPhase() {
 
   const bannedIds = new Set(bans.map((ban) => ban.championId));
   const pickedIds = new Set(picks.map((pick) => pick.championId));
-  // Picked champions are never bannable in any phase (fearless or not), but
-  // they must stay labelled "Picked" rather than looking like a ban.
+  // A champion that is already banned or already picked is never bannable.
+  // It stays in the pool, labelled, so players can see why it is unavailable.
   const championStatus = new Map(
     champions.map((champion) => {
       if (bannedIds.has(champion.id)) {
@@ -87,8 +61,7 @@ export default function BanPhase() {
       return [champion.id, 'available'] as const;
     }),
   );
-  // Ban Phase 2 (R-005) runs Red-first and allows counter-bans against
-  // Phase 1 picks (unless Fearless mode), tracked as ban #4/#5 per team.
+  // Ban Phase 2 (R-005) runs Red-first and is tracked as ban #4/#5 per team.
   const isBanPhase2 = currentTurnInfo?.phase === 'BANNING_P2';
 
   async function handleLock() {
