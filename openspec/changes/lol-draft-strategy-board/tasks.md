@@ -32,7 +32,7 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 4.1 Create waiting drafts with an unambiguous seven-character code and creator-selected side, and verify the persisted draft begins in `WAITING_FOR_PLAYERS`
 - [x] 4.2 Claim a remaining side atomically and start turn 1 when both sides are occupied, and verify simultaneous claims cannot assign one side twice
 - [x] 4.3 Fetch participant draft state and remove waiting drafts that remain incomplete for five minutes, and verify stale waiting codes resolve as not found
-- [ ] 4.4 Remove Fearless mode configuration from the draft lifecycle (toggle endpoint, session flag, persistence column) and verify no Fearless control remains on the backend
+- [x] 4.4 Remove Fearless mode configuration from the draft lifecycle (toggle endpoint, session flag, persistence column) and verify no Fearless control remains on the backend
 - [x] 4.5 Implement the waiting-room, join, participant, complete, and expired room states with a shareable spectator link, and verify each state renders its corresponding outcome
 - [ ] 4.6 Add backend integration tests for create, join races, idempotent rejoin, waiting cleanup, and completed-state lookup, and verify the room lifecycle test suite passes
 - [ ] 4.7 Document draft creation, code sharing, and side assignment, and verify the instructions work in a fresh local environment

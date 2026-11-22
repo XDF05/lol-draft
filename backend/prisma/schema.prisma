@@ -31,7 +31,6 @@ model Draft {
   blueTeamPlayer   User?  @relation("BlueTeam", fields: [blueTeamPlayerId], references: [id])
   redTeamPlayer    User?  @relation("RedTeam", fields: [redTeamPlayerId], references: [id])
 
-  fearlessMode Boolean @default(false)
   status       String // WAITING_FOR_PLAYERS | IN_PROGRESS | COMPLETE | EXPIRED
 
   currentTurn Int @default(1)

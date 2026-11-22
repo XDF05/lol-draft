@@ -1,9 +1,5 @@
 import * as crypto from 'crypto';
-import {
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DraftEventsGateway } from '../draft-events/draft-events.gateway';
 import { DraftSessionService } from '../draft-events/draft-session.service';
@@ -250,46 +246,6 @@ export class DraftService {
     };
   }
 
-  /**
-   * Toggle Fearless Drafting mode (T-013). Only a participant may change it,
-   * and only while the draft is still WAITING_FOR_PLAYERS — once the draft
-   * starts the flag is permanent (R-008 Fearless rules / open spec flow).
-   * The update and its status guard are one conditional UPDATE so a toggle
-   * racing the draft start cannot enable the mode after turn 1 has begun.
-   */
-  async setFearless(
-    userId: number,
-    code: string,
-    fearless: boolean,
-  ): Promise<DraftView> {
-    const draft = await this.findLiveDraftOrThrow(code);
-
-    if (draft.blueTeamPlayerId !== userId && draft.redTeamPlayerId !== userId) {
-      throw new ForbiddenException(
-        'Only draft participants can change Fearless Mode',
-      );
-    }
-
-    const updated = await this.prisma.draft.updateMany({
-      where: { id: draft.id, status: 'WAITING_FOR_PLAYERS' },
-      data: { fearlessMode: fearless },
-    });
-    if (updated.count === 0) {
-      throw new ConflictException('Cannot toggle during active draft');
-    }
-
-    const fresh = await this.prisma.draft.findUniqueOrThrow({
-      where: { id: draft.id },
-      include: DRAFT_INCLUDE,
-    });
-
-    // Keep both clients' waiting room in sync (the flag is shown before the
-    // draft starts and carried into the live session on turn 1).
-    await this.gateway.broadcastDraftUpdate(draft.id);
-
-    return this.toView(fresh);
-  }
-
   // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
@@ -345,7 +301,6 @@ export class DraftService {
       id: draft.id,
       code: draft.code,
       status: draft.status,
-      fearlessMode: draft.fearlessMode,
       currentTurn: draft.currentTurn,
       bluePlayer: draft.blueTeamPlayer
         ? {

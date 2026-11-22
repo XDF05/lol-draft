@@ -15,7 +15,6 @@ CREATE TABLE "Draft" (
     "code" TEXT NOT NULL,
     "blueTeamPlayerId" INTEGER,
     "redTeamPlayerId" INTEGER,
-    "fearlessMode" BOOLEAN NOT NULL DEFAULT false,
     "status" TEXT NOT NULL,
     "currentTurn" INTEGER NOT NULL DEFAULT 1,
     "maxTurns" INTEGER NOT NULL DEFAULT 21,

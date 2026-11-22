@@ -16,9 +16,9 @@ import {
  *   { statusCode, code, message, timestamp, path }
  *
  * Draft-specific exceptions carry their own `code` (e.g. `DRAFT_NOT_FOUND`,
- * `INVALID_TURN`, `CHAMPION_UNAVAILABLE`, `FEARLESS_MODE_VIOLATION`). All
- * other exceptions fall back to a status-derived code and log the server
- * error so operators can see what went wrong.
+ * `INVALID_TURN`, `CHAMPION_UNAVAILABLE`). All other exceptions fall back to
+ * a status-derived code and log the server error so operators can see what
+ * went wrong.
  */
 @Catch(HttpException)
 export class DraftHttpExceptionFilter

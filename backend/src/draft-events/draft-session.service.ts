@@ -30,7 +30,6 @@ export interface DraftSessionState {
   draftId: number;
   code: string;
   status: string;
-  fearlessMode: boolean;
   currentTurn: number;
   bans: BanConfirmedEntry[];
   picks: PickConfirmedEntry[];
@@ -77,7 +76,6 @@ export class DraftSessionService {
       draftId: draft.id,
       code: draft.code,
       status: draft.status,
-      fearlessMode: draft.fearlessMode,
       currentTurn: draft.currentTurn,
       // Hydrate the locked history from PostgreSQL so a session rebuilt
       // after a Redis loss keeps its bans/picks (R-012).
@@ -112,10 +110,10 @@ export class DraftSessionService {
   }
 
   /**
-   * Re-apply the draft record's authoritative fields (status, fearlessMode)
-   * to the live session and persist them. A session created while the draft
-   * was WAITING_FOR_PLAYERS keeps that stale status otherwise — nothing
-   * else writes the flip into Redis (T-009 timers read it from here).
+   * Re-apply the draft record's authoritative status to the live session and
+   * persist it. A session created while the draft was WAITING_FOR_PLAYERS
+   * keeps that stale status otherwise — nothing else writes the flip into
+   * Redis (T-009 timers read it from here).
    * Returns null when the draft row no longer exists.
    */
   async syncWithRecord(draftId: number): Promise<DraftSessionState | null> {
@@ -127,7 +125,6 @@ export class DraftSessionService {
     }
     const state = await this.getOrCreate(draftId);
     state.status = draft.status;
-    state.fearlessMode = draft.fearlessMode;
     await this.save(state);
     return state;
   }

@@ -223,7 +223,7 @@ export class DraftEventsGateway
     }
 
     const session = await this.sessions.getOrCreate(draft.id);
-    this.applyRecordStatus(session, draft.status, draft.fearlessMode);
+    this.applyRecordStatus(session, draft.status);
 
     await client.join(draftRoom(draft.id));
     client.data.draftId = draft.id;
@@ -335,7 +335,7 @@ export class DraftEventsGateway
     }
 
     const session = await this.sessions.getOrCreate(draft.id);
-    this.applyRecordStatus(session, draft.status, draft.fearlessMode);
+    this.applyRecordStatus(session, draft.status);
 
     await client.join(publicDraftRoom(draft.id));
     client.data.publicDraftId = draft.id;
@@ -689,8 +689,8 @@ export class DraftEventsGateway
    * view without polling.
    */
   async broadcastDraftUpdate(draftId: number): Promise<void> {
-    // syncWithRecord applies the record's status/fearless and persists them,
-    // so a session created while the draft was waiting is upgraded to
+    // syncWithRecord applies the record's status and persists it, so a
+    // session created while the draft was waiting is upgraded to
     // IN_PROGRESS here (the timer relies on the persisted status).
     const session = await this.sessions.syncWithRecord(draftId);
     if (!session) {
@@ -838,7 +838,7 @@ export class DraftEventsGateway
 
     const team = this.teamOf(draft.blueTeamPlayerId, draft.redTeamPlayerId, user);
     const session = await this.sessions.getOrCreate(draftId);
-    this.applyRecordStatus(session, draft.status, draft.fearlessMode);
+    this.applyRecordStatus(session, draft.status);
     return { draftId, session, team, user };
   }
 
@@ -870,7 +870,10 @@ export class DraftEventsGateway
     }
   }
 
-  /** Ban pool rules: never re-ban; picked champions may be banned unless Fearless (R-005). */
+  /**
+   * Ban pool rules: one rule for the whole draft — a champion that is
+   * already banned or already picked is never bannable.
+   */
   private validateBanChampion(
     session: DraftSessionState,
     championId: string,
@@ -878,10 +881,7 @@ export class DraftEventsGateway
     if (session.bans.some((b) => b.championId === championId)) {
       throw new WsException('Champion already banned');
     }
-    if (
-      session.fearlessMode &&
-      session.picks.some((p) => p.championId === championId)
-    ) {
+    if (session.picks.some((p) => p.championId === championId)) {
       throw new WsException('Champion already picked');
     }
   }
@@ -899,14 +899,9 @@ export class DraftEventsGateway
     }
   }
 
-  /** Keep volatile fields (status/fearless) in sync with the draft record. */
-  private applyRecordStatus(
-    session: DraftSessionState,
-    status: string,
-    fearlessMode: boolean,
-  ): void {
+  /** Keep the volatile status in sync with the draft record. */
+  private applyRecordStatus(session: DraftSessionState, status: string): void {
     session.status = status;
-    session.fearlessMode = fearlessMode;
   }
 
   // -------------------------------------------------------------------------

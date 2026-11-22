@@ -21,7 +21,6 @@ export interface DraftView {
   id: number;
   code: string;
   status: string;
-  fearlessMode: boolean;
   currentTurn: number;
   bluePlayer: DraftParticipant | null;
   redPlayer: DraftParticipant | null;
