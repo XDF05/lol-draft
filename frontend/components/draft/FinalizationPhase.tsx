@@ -117,7 +117,13 @@ export default function FinalizationPhase() {
         <TimerDisplay />
       </div>
 
-      <p style={{ margin: '0.25rem 0 0', color: 'var(--board-muted)', fontSize: '0.85rem' }}>
+      <p
+        style={{
+          margin: '0.25rem 0 0',
+          color: 'var(--board-muted)',
+          fontSize: '0.85rem',
+        }}
+      >
         Swap two of your own picks to change their order. Swaps apply
         immediately, the opponent is not involved, and you can swap as many
         times as you like until the timer ends.
@@ -138,7 +144,12 @@ export default function FinalizationPhase() {
             return (
               <li key={pick.id} style={pickRowStyle}>
                 <span>
-                  <span style={{ color: 'var(--board-muted)', marginRight: '0.35rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--board-muted)',
+                      marginRight: '0.35rem',
+                    }}
+                  >
                     {index + 1}.
                   </span>
                   <strong>{nameOf(pick)}</strong>
@@ -183,7 +194,12 @@ export default function FinalizationPhase() {
             {opponentPicks.map((pick, index) => (
               <li key={pick.id} style={pickRowStyle}>
                 <span>
-                  <span style={{ color: 'var(--board-muted)', marginRight: '0.35rem' }}>
+                  <span
+                    style={{
+                      color: 'var(--board-muted)',
+                      marginRight: '0.35rem',
+                    }}
+                  >
                     {index + 1}.
                   </span>
                   {nameOf(pick)}
@@ -195,7 +211,13 @@ export default function FinalizationPhase() {
       )}
 
       {remaining === 0 && (
-        <p style={{ margin: '0.75rem 0 0', color: 'var(--danger)', fontWeight: 600 }}>
+        <p
+          style={{
+            margin: '0.75rem 0 0',
+            color: 'var(--danger)',
+            fontWeight: 600,
+          }}
+        >
           Time is up — the draft is locking.
         </p>
       )}

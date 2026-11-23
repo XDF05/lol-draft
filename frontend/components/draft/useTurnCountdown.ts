@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDraftStore } from '../../store/draftStore';
-import type {
-  TimerWarningPayload,
-  TurnStartPayload,
-} from '../../lib/socket';
+import type { TimerWarningPayload, TurnStartPayload } from '../../lib/socket';
 
 /**
  * Shared turn countdown for the ban and pick boards (R-010).

@@ -17,7 +17,10 @@ import type { CSSProperties } from 'react';
 
 export type LoadingSpinnerSize = 'sm' | 'md' | 'lg';
 
-const SIZE: Record<LoadingSpinnerSize, { width: string; height: string; borderWidth: string }> = {
+const SIZE: Record<
+  LoadingSpinnerSize,
+  { width: string; height: string; borderWidth: string }
+> = {
   sm: { width: '16px', height: '16px', borderWidth: '2px' },
   md: { width: '28px', height: '28px', borderWidth: '3px' },
   lg: { width: '40px', height: '40px', borderWidth: '4px' },
@@ -98,7 +101,19 @@ export default function LoadingSpinner({
       <div style={overlayStyle}>
         <div style={containerStyle}>
           <div style={style} role="status" aria-label={label}>
-            <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+            <span
+              style={{
+                position: 'absolute',
+                width: 1,
+                height: 1,
+                padding: 0,
+                margin: -1,
+                overflow: 'hidden',
+                clip: 'rect(0, 0, 0, 0)',
+                whiteSpace: 'nowrap',
+                border: 0,
+              }}
+            >
               {label}
             </span>
           </div>
@@ -110,7 +125,19 @@ export default function LoadingSpinner({
   return (
     <div style={containerStyle}>
       <div style={style} role="status" aria-label={label}>
-        <span style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+        <span
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            border: 0,
+          }}
+        >
           {label}
         </span>
       </div>

@@ -10,8 +10,8 @@ import axios, { AxiosError } from 'axios';
  * - If the session cannot be recovered, clears stored tokens and notifies
  *   the auth context through configureAuthApi().
  *
- * Base URL: NEXT_PUBLIC_API_URL (set by docker-compose in production),
- * falling back to the local dev API port.
+ * Base URL: NEXT_PUBLIC_API_URL, inlined at build time (Compose passes
+ * http://localhost:4000), falling back to the local dev API port.
  */
 
 declare module 'axios' {
@@ -46,7 +46,10 @@ export const authStorage = {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(AUTH_STORAGE_KEYS.accessToken, access_token);
     if (refresh_token) {
-      window.localStorage.setItem(AUTH_STORAGE_KEYS.refreshToken, refresh_token);
+      window.localStorage.setItem(
+        AUTH_STORAGE_KEYS.refreshToken,
+        refresh_token,
+      );
     }
   },
   clear(): void {
@@ -122,36 +125,33 @@ function handleAuthFailure(): void {
 }
 
 // --- Response interceptor: auto-refresh on 401, then retry once. ---
-api.interceptors.response.use(
-  undefined,
-  async (error: AxiosError) => {
-    const original = error.config;
-    const status = error.response?.status;
+api.interceptors.response.use(undefined, async (error: AxiosError) => {
+  const original = error.config;
+  const status = error.response?.status;
 
-    if (
-      status === 401 &&
-      original &&
-      !original._retry &&
-      !isAuthEndpoint(original.url)
-    ) {
-      original._retry = true;
+  if (
+    status === 401 &&
+    original &&
+    !original._retry &&
+    !isAuthEndpoint(original.url)
+  ) {
+    original._retry = true;
 
-      if (authStorage.getRefreshToken()) {
-        try {
-          await rotateRefreshToken();
-          // The request interceptor re-attaches the fresh token on retry.
-          return api.request(original);
-        } catch (refreshError) {
-          handleAuthFailure();
-          throw refreshError;
-        }
+    if (authStorage.getRefreshToken()) {
+      try {
+        await rotateRefreshToken();
+        // The request interceptor re-attaches the fresh token on retry.
+        return api.request(original);
+      } catch (refreshError) {
+        handleAuthFailure();
+        throw refreshError;
       }
-
-      handleAuthFailure();
     }
 
-    throw error;
-  },
-);
+    handleAuthFailure();
+  }
+
+  throw error;
+});
 
 export default api;

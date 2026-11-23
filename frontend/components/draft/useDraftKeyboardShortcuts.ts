@@ -27,9 +27,8 @@ export function useDraftKeyboardShortcuts({
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target as HTMLElement | null;
       const isInput =
-        target?.matches(
-          'input, textarea, select, [contenteditable="true"]',
-        ) ?? false;
+        target?.matches('input, textarea, select, [contenteditable="true"]') ??
+        false;
 
       if (event.key === 'Enter') {
         if (isInput) {

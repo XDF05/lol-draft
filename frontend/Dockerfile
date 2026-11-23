@@ -16,6 +16,10 @@ RUN npm ci --no-audit --no-fund
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# NEXT_PUBLIC_* values are inlined into the browser bundle at build time.
+# Compose passes the browser-reachable URL; changing it requires a rebuild.
+ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build
 
 # --- Runtime (standalone output) ---

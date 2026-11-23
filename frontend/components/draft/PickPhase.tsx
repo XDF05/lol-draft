@@ -4,10 +4,7 @@ import { useState, type CSSProperties } from 'react';
 import { useToast } from '../common/Toast';
 import { useChampionData } from '../../hooks/useChampionData';
 import { useDraftStore } from '../../store/draftStore';
-import type {
-  BanConfirmedEntry,
-  PickConfirmedEntry,
-} from '../../lib/socket';
+import type { BanConfirmedEntry, PickConfirmedEntry } from '../../lib/socket';
 import type { Champion } from '../../lib/types';
 import ChampionPool from './ChampionPool';
 import TimerDisplay from './TimerDisplay';
@@ -54,7 +51,7 @@ export default function PickPhase() {
 
   const isPickTurn =
     currentTurnInfo !== null && currentTurnInfo.actionType === 'PICK';
-  const myPending = myTeam ? pending[myTeam] ?? null : null;
+  const myPending = myTeam ? (pending[myTeam] ?? null) : null;
   const selectedId =
     myPending?.type === 'PICK' ? (myPending.championId ?? null) : null;
   const isMyTurn = isPickTurn && currentTurnInfo?.expectedTeam === myTeam;
@@ -136,7 +133,9 @@ export default function PickPhase() {
 
       <div className="phase-action-row">
         <span className="muted">
-          {isMyTurn ? 'Choose one champion, then lock it in.' : 'Waiting for the other player.'}
+          {isMyTurn
+            ? 'Choose one champion, then lock it in.'
+            : 'Waiting for the other player.'}
         </span>
         <button
           type="button"

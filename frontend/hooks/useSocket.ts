@@ -52,18 +52,9 @@ export function attachDraftEventListeners(socket: DraftSocket): () => void {
     ['pick.confirmed', (p) => store().applyPickConfirmed(p as never)],
     ['pick.reordered', (p) => store().applyPickReordered(p as never)],
     ['draft.completed', (p) => store().applyDraftCompleted(p as never)],
-    [
-      'timer.warning',
-      (p) => store().applyTimerWarning(p as never),
-    ],
-    [
-      'timer.expired',
-      (p) => store().applyTimerExpired(p as never),
-    ],
-    [
-      'draft.expired',
-      (p) => store().applyDraftExpired(p as never),
-    ],
+    ['timer.warning', (p) => store().applyTimerWarning(p as never)],
+    ['timer.expired', (p) => store().applyTimerExpired(p as never)],
+    ['draft.expired', (p) => store().applyDraftExpired(p as never)],
     [
       'auth.error',
       (p) => {

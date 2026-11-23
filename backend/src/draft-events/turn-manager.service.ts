@@ -6,12 +6,7 @@ import {
   DraftSessionService,
   type DraftSessionState,
 } from './draft-session.service';
-import {
-  FINALIZATION_TURN,
-  MAX_TURNS,
-  banPhaseOf,
-  turnInfo,
-} from './turn-schedule';
+import { MAX_TURNS, banPhaseOf, turnInfo } from './turn-schedule';
 import {
   BanConfirmedPayload,
   BanConfirmedEntry,
@@ -384,7 +379,12 @@ export class TurnManagerService implements OnModuleDestroy {
     }
     const phase = banPhaseOf(turnInfo(turnNumber).phase);
     await this.persistBanRow(draftId, championId, team, phase);
-    const payload: BanConfirmedPayload = { championId, team, phase, bans: state.bans };
+    const payload: BanConfirmedPayload = {
+      championId,
+      team,
+      phase,
+      bans: state.bans,
+    };
     this.emitTo(draftId, 'ban.confirmed', payload);
     this.emitTo(draftId, 'draft.update', state);
     this.logger.log(
@@ -441,7 +441,9 @@ export class TurnManagerService implements OnModuleDestroy {
     team: Team,
     phase: 1 | 2,
   ): Promise<void> {
-    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
+    const draft = await this.prisma.draft.findUnique({
+      where: { id: draftId },
+    });
     const playerId =
       team === 'BLUE' ? draft?.blueTeamPlayerId : draft?.redTeamPlayerId;
     if (!playerId) {
@@ -463,7 +465,9 @@ export class TurnManagerService implements OnModuleDestroy {
     championId: string,
     team: Team,
   ): Promise<{ id: number }> {
-    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
+    const draft = await this.prisma.draft.findUnique({
+      where: { id: draftId },
+    });
     const playerId =
       team === 'BLUE' ? draft?.blueTeamPlayerId : draft?.redTeamPlayerId;
     if (!playerId) {
@@ -571,9 +575,6 @@ export class TurnManagerService implements OnModuleDestroy {
     // stripped from draft.update snapshots (T-015).
     this.server
       .to(publicDraftRoom(draftId))
-      .emit(
-        event as never,
-        publicBroadcastPayload(event, payload) as never,
-      );
+      .emit(event as never, publicBroadcastPayload(event, payload) as never);
   }
 }

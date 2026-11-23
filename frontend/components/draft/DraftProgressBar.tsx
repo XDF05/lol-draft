@@ -28,7 +28,8 @@ export default function DraftProgressBar() {
   const draftStatus = useDraftStore((s) => s.draftStatus);
 
   const turnNumber = currentTurnInfo?.turnNumber ?? 0;
-  const completed = draftStatus === 'COMPLETE' ? TOTAL_TURNS : Math.max(0, turnNumber - 1);
+  const completed =
+    draftStatus === 'COMPLETE' ? TOTAL_TURNS : Math.max(0, turnNumber - 1);
   const progress = Math.min(100, Math.round((completed / TOTAL_TURNS) * 100));
 
   if (!currentTurnInfo && draftStatus !== 'COMPLETE') {
@@ -46,7 +47,10 @@ export default function DraftProgressBar() {
         </span>
       </div>
       <div className="draft-progress-track">
-        <div className="draft-progress-fill" style={{ width: `${progress}%` }} />
+        <div
+          className="draft-progress-fill"
+          style={{ width: `${progress}%` }}
+        />
       </div>
       <div className="draft-progress-caption">
         <span>{bans.length} bans</span>

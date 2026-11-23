@@ -8,7 +8,9 @@ const champion: Champion = {
   iconUrl: 'https://cdn.example.com/img/champion/Ahri.png',
 };
 
-function renderCard(overrides: Partial<Parameters<typeof ChampionCard>[0]> = {}) {
+function renderCard(
+  overrides: Partial<Parameters<typeof ChampionCard>[0]> = {},
+) {
   const props = {
     champion,
     selected: false,
@@ -81,7 +83,10 @@ describe('ChampionCard (champion states)', () => {
   });
 
   it('does not call onToggle when explicitly disabled', () => {
-    const { button, props } = renderCard({ status: 'available', disabled: true });
+    const { button, props } = renderCard({
+      status: 'available',
+      disabled: true,
+    });
     fireEvent.click(button);
     expect(props.onToggle).not.toHaveBeenCalled();
   });

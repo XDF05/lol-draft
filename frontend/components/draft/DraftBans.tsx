@@ -31,7 +31,9 @@ function BanTeam({
           const champion = ban ? championById.get(ban.championId) : undefined;
           return (
             <div
-              key={ban ? `${ban.championId}-${index}` : `${team}-empty-${index}`}
+              key={
+                ban ? `${ban.championId}-${index}` : `${team}-empty-${index}`
+              }
               className="draft-ban-slot"
               title={
                 champion

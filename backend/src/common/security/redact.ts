@@ -9,8 +9,5 @@
  */
 export function redactRequestPath(rawUrl: string | undefined): string {
   const path = (rawUrl ?? '/').split('?', 1)[0] || '/';
-  return path.replace(
-    /(\/(?:public\/)?draft\/)[^/]+/g,
-    '$1[redacted]',
-  );
+  return path.replace(/(\/(?:public\/)?draft\/)[^/]+/g, '$1[redacted]');
 }

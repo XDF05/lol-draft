@@ -19,14 +19,10 @@ export interface DraftError {
  * from a temporarily unavailable service (503) without leaking internals.
  */
 export function extractDraftError(err: unknown): DraftError {
-  const status = isAxiosError(err) ? err.response?.status ?? null : null;
+  const status = isAxiosError(err) ? (err.response?.status ?? null) : null;
   const backend = isAxiosError(err) ? err.response?.data : null;
 
-  if (
-    backend &&
-    typeof backend === 'object' &&
-    'code' in backend
-  ) {
+  if (backend && typeof backend === 'object' && 'code' in backend) {
     const body = backend as { code?: string; message?: string };
     return {
       code: body.code ?? 'UNKNOWN_ERROR',

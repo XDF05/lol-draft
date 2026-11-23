@@ -13,11 +13,7 @@
 export type Team = 'BLUE' | 'RED';
 
 export type DraftPhase =
-  | 'BANNING_P1'
-  | 'PICKING_P1'
-  | 'BANNING_P2'
-  | 'PICKING_P2'
-  | 'FINALIZATION';
+  'BANNING_P1' | 'PICKING_P1' | 'BANNING_P2' | 'PICKING_P2' | 'FINALIZATION';
 
 /** User identity attached to every authenticated socket (`client.data.user`). */
 export interface SocketUser {

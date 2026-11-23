@@ -76,7 +76,9 @@ export default function DraftCreationPage() {
                 <label
                   key={value}
                   className={`side-choice ${sideClass}${selected ? ` selected-${sideClass}` : ''}`}
-                  style={selected ? { border: selectedBorder[value] } : undefined}
+                  style={
+                    selected ? { border: selectedBorder[value] } : undefined
+                  }
                 >
                   <input
                     type="radio"

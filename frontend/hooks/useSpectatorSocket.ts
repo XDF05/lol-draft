@@ -89,7 +89,11 @@ export function useSpectatorSocket(
   }, []);
 
   const beginGrace = useCallback(() => {
-    if (disposedRef.current || graceExpiredRef.current || graceTimerRef.current) {
+    if (
+      disposedRef.current ||
+      graceExpiredRef.current ||
+      graceTimerRef.current
+    ) {
       return;
     }
     setState((s) => ({

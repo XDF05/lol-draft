@@ -5,13 +5,17 @@ import { DraftSessionService } from './draft-session.service';
 import { RiotApiService } from '../champions/riot-api.service';
 import { ServiceUnavailableException } from '@nestjs/common';
 import type { DraftSessionState } from './draft-session.service';
-import { turnInfo } from './turn-schedule';
 
 /** Minimal session state for turn N with the given pending selection. */
 function sessionState(
   draftId: number,
   currentTurn: number,
-  pending?: Partial<Record<'BLUE' | 'RED', { type: 'BAN' | 'PICK'; championId: string | null } | null>>,
+  pending?: Partial<
+    Record<
+      'BLUE' | 'RED',
+      { type: 'BAN' | 'PICK'; championId: string | null } | null
+    >
+  >,
   status = 'IN_PROGRESS',
 ): DraftSessionState {
   return {
@@ -145,7 +149,11 @@ describe('TurnManagerService (unit)', () => {
       expect(remainingAfter).toBeLessThan(remainingBefore);
       expect(remainingAfter).toBeGreaterThan(remainingBefore - 500);
       // Resume with announce:false must not re-announce turn.start.
-      expect(emitSpy).not.toHaveBeenCalledWith(1, 'turn.start', expect.anything());
+      expect(emitSpy).not.toHaveBeenCalledWith(
+        1,
+        'turn.start',
+        expect.anything(),
+      );
     });
 
     it('resumeTurnTimer restarts the current turn after a server restart when not armed', async () => {
@@ -174,7 +182,9 @@ describe('TurnManagerService (unit)', () => {
 
   describe('timer races — a lock racing the deadline cannot double-advance', () => {
     it('expiry is rejected when a manual action already owns the turn', async () => {
-      const session = sessionState(1, 1, { BLUE: { type: 'BAN', championId: 'Ahri' } });
+      const session = sessionState(1, 1, {
+        BLUE: { type: 'BAN', championId: 'Ahri' },
+      });
       mockSessions.syncWithRecord.mockResolvedValue(session);
       mockPrisma.draft.findUnique.mockResolvedValue({
         id: 1,
@@ -193,7 +203,9 @@ describe('TurnManagerService (unit)', () => {
     });
 
     it('a manual re-lock is rejected after expiry already owns the turn', async () => {
-      const session = sessionState(1, 1, { BLUE: { type: 'BAN', championId: 'Ahri' } });
+      const session = sessionState(1, 1, {
+        BLUE: { type: 'BAN', championId: 'Ahri' },
+      });
       mockSessions.syncWithRecord.mockResolvedValue(session);
       mockPrisma.draft.findUnique.mockResolvedValue({
         id: 1,
@@ -221,7 +233,9 @@ describe('TurnManagerService (unit)', () => {
 
   describe('timeout fallback — deterministic expiry resolution', () => {
     it('locks a pending ban at expiry and advances the turn', async () => {
-      const session = sessionState(1, 1, { BLUE: { type: 'BAN', championId: 'Ahri' } });
+      const session = sessionState(1, 1, {
+        BLUE: { type: 'BAN', championId: 'Ahri' },
+      });
       mockSessions.syncWithRecord.mockResolvedValue(session);
       mockPrisma.draft.findUnique.mockResolvedValue({
         id: 1,
@@ -230,18 +244,34 @@ describe('TurnManagerService (unit)', () => {
       });
       mockPrisma.ban.create.mockResolvedValue(undefined);
       const next = sessionState(1, 2);
-      mockSessions.confirmBan.mockResolvedValue({ state: next, championId: 'Ahri' });
+      mockSessions.confirmBan.mockResolvedValue({
+        state: next,
+        championId: 'Ahri',
+      });
       mockSessions.save.mockResolvedValue(undefined);
       const emitSpy = jest.spyOn(service as any, 'emitTo');
 
       await (service as any).resolveExpiredTurn(1);
 
       expect(mockPrisma.ban.create).toHaveBeenCalledWith({
-        data: { draftId: 1, championId: 'Ahri', phase: 1, playerId: 10, team: 'BLUE', locked: true },
+        data: {
+          draftId: 1,
+          championId: 'Ahri',
+          phase: 1,
+          playerId: 10,
+          team: 'BLUE',
+          locked: true,
+        },
       });
-      expect(emitSpy).toHaveBeenCalledWith(1, 'ban.confirmed', expect.anything());
+      expect(emitSpy).toHaveBeenCalledWith(
+        1,
+        'ban.confirmed',
+        expect.anything(),
+      );
       expect(emitSpy).toHaveBeenCalledWith(1, 'draft.update', next);
-      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.expired', { autoLockedChampionId: 'Ahri' });
+      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.expired', {
+        autoLockedChampionId: 'Ahri',
+      });
     });
 
     it('an expired pick turn with nothing staged picks the first available champion alphabetically', async () => {
@@ -254,7 +284,10 @@ describe('TurnManagerService (unit)', () => {
       });
       mockPrisma.pick.create.mockResolvedValue({ id: 42 });
       const next = sessionState(1, 8);
-      mockSessions.confirmPick.mockResolvedValue({ state: next, championId: 'Ahri' });
+      mockSessions.confirmPick.mockResolvedValue({
+        state: next,
+        championId: 'Ahri',
+      });
       mockSessions.save.mockResolvedValue(undefined);
       mockChampions.getChampions.mockResolvedValue({
         count: 3,
@@ -270,9 +303,17 @@ describe('TurnManagerService (unit)', () => {
 
       // First available alphabetically among unbanned/unpicked = Ahri.
       expect(mockPrisma.pick.create).toHaveBeenCalledWith({
-        data: { draftId: 1, championId: 'Ahri', playerId: 10, team: 'BLUE', locked: true },
+        data: {
+          draftId: 1,
+          championId: 'Ahri',
+          playerId: 10,
+          team: 'BLUE',
+          locked: true,
+        },
       });
-      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.expired', { autoLockedChampionId: 'Ahri' });
+      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.expired', {
+        autoLockedChampionId: 'Ahri',
+      });
     });
 
     it('an expired ban turn with nothing staged is skipped (no champion locked)', async () => {
@@ -292,7 +333,9 @@ describe('TurnManagerService (unit)', () => {
 
       expect(mockSessions.recordSkip).toHaveBeenCalledWith(1, 'RED');
       expect(mockPrisma.ban.create).not.toHaveBeenCalled();
-      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.expired', { autoLockedChampionId: null });
+      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.expired', {
+        autoLockedChampionId: null,
+      });
     });
 
     it('a pick turn with no available champion falls back to a skip when the catalog is down', async () => {
@@ -303,7 +346,9 @@ describe('TurnManagerService (unit)', () => {
         blueTeamPlayerId: 10,
         redTeamPlayerId: 11,
       });
-      mockChampions.getChampions.mockRejectedValue(new ServiceUnavailableException('Champion pool unavailable'));
+      mockChampions.getChampions.mockRejectedValue(
+        new ServiceUnavailableException('Champion pool unavailable'),
+      );
       const next = sessionState(1, 8);
       mockSessions.recordSkip.mockResolvedValue(next);
       mockSessions.save.mockResolvedValue(undefined);
@@ -320,7 +365,9 @@ describe('TurnManagerService (unit)', () => {
       // First syncWithRecord call (inside resolveExpiredTurn) sees IN_PROGRESS;
       // the second (inside completeDraft) sees COMPLETE.
       mockSessions.syncWithRecord.mockResolvedValueOnce(session);
-      mockSessions.syncWithRecord.mockResolvedValue(sessionState(1, 21, {}, 'COMPLETE'));
+      mockSessions.syncWithRecord.mockResolvedValue(
+        sessionState(1, 21, {}, 'COMPLETE'),
+      );
       mockPrisma.draft.updateMany.mockResolvedValue({ count: 1 });
       mockPrisma.draft.findUnique.mockResolvedValue({
         id: 1,
@@ -338,7 +385,11 @@ describe('TurnManagerService (unit)', () => {
         where: { id: 1, status: 'IN_PROGRESS' },
         data: { status: 'COMPLETE', completedAt: expect.any(Date) },
       });
-      expect(emitSpy).toHaveBeenCalledWith(1, 'draft.completed', expect.anything());
+      expect(emitSpy).toHaveBeenCalledWith(
+        1,
+        'draft.completed',
+        expect.anything(),
+      );
       expect(clearSpy).toHaveBeenCalledWith(1);
     });
   });
@@ -350,7 +401,9 @@ describe('TurnManagerService (unit)', () => {
       mockPrisma.draft.update.mockResolvedValue({});
       mockSessions.save.mockResolvedValue(undefined);
       const emitSpy = jest.spyOn(service as any, 'emitTo');
-      const armSpy = jest.spyOn(service as any, 'armTurn').mockResolvedValue(undefined);
+      const armSpy = jest
+        .spyOn(service as any, 'armTurn')
+        .mockResolvedValue(undefined);
 
       await service.startTurnTimer(1);
       await service.handleActionCompleted(1);
@@ -387,7 +440,14 @@ describe('TurnManagerService (unit)', () => {
       await (service as any).persistBanRow(1, 'Ahri', 'BLUE', 1);
 
       expect(mockPrisma.ban.create).toHaveBeenCalledWith({
-        data: { draftId: 1, championId: 'Ahri', phase: 1, playerId: 10, team: 'BLUE', locked: true },
+        data: {
+          draftId: 1,
+          championId: 'Ahri',
+          phase: 1,
+          playerId: 10,
+          team: 'BLUE',
+          locked: true,
+        },
       });
     });
 
@@ -414,7 +474,13 @@ describe('TurnManagerService (unit)', () => {
       const row = await (service as any).persistPickRow(1, 'Akali', 'RED');
 
       expect(mockPrisma.pick.create).toHaveBeenCalledWith({
-        data: { draftId: 1, championId: 'Akali', playerId: 11, team: 'RED', locked: true },
+        data: {
+          draftId: 1,
+          championId: 'Akali',
+          playerId: 11,
+          team: 'RED',
+          locked: true,
+        },
       });
       expect(row).toEqual({ id: 7 });
     });
@@ -432,8 +498,18 @@ describe('TurnManagerService (unit)', () => {
         ],
       });
       const state = sessionState(1, 7, {}, 'IN_PROGRESS');
-      state.bans.push({ championId: 'Annie', team: 'RED', phase: 1, locked: true });
-      state.picks.push({ id: 1, championId: 'Akali', team: 'BLUE', locked: true });
+      state.bans.push({
+        championId: 'Annie',
+        team: 'RED',
+        phase: 1,
+        locked: true,
+      });
+      state.picks.push({
+        id: 1,
+        championId: 'Akali',
+        team: 'BLUE',
+        locked: true,
+      });
 
       const id = await (service as any).firstAvailableChampion(state);
 
@@ -447,7 +523,12 @@ describe('TurnManagerService (unit)', () => {
         data: [{ id: 'Ahri', name: 'Ahri', iconUrl: 'x' }],
       });
       const state = sessionState(1, 7, {}, 'IN_PROGRESS');
-      state.picks.push({ id: 1, championId: 'Ahri', team: 'BLUE', locked: true });
+      state.picks.push({
+        id: 1,
+        championId: 'Ahri',
+        team: 'BLUE',
+        locked: true,
+      });
 
       const id = await (service as any).firstAvailableChampion(state);
       expect(id).toBeNull();

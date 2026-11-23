@@ -36,7 +36,7 @@ export default function BanPhase() {
 
   const isBanTurn =
     currentTurnInfo !== null && currentTurnInfo.actionType === 'BAN';
-  const myPending = myTeam ? pending[myTeam] ?? null : null;
+  const myPending = myTeam ? (pending[myTeam] ?? null) : null;
   const isMyTurn = isBanTurn && currentTurnInfo?.expectedTeam === myTeam;
   const canSelect = isMyTurn && !locking;
 
@@ -103,7 +103,9 @@ export default function BanPhase() {
       <div className="phase-heading">
         <strong>
           {isBanPhase2 ? 'Ban Phase 2 — ' : ''}
-          {isMyTurn ? 'Your ban pick' : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
+          {isMyTurn
+            ? 'Your ban pick'
+            : `Waiting for ${(currentTurnInfo?.expectedTeam ?? '').toLowerCase()}…`}
         </strong>
         <TimerDisplay />
       </div>
@@ -121,7 +123,9 @@ export default function BanPhase() {
 
       <div className="phase-action-row">
         <span className="muted">
-          {isMyTurn ? 'Choose one champion, then lock it in.' : 'Waiting for the other player.'}
+          {isMyTurn
+            ? 'Choose one champion, then lock it in.'
+            : 'Waiting for the other player.'}
         </span>
         <button
           type="button"

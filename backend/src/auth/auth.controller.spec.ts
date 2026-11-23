@@ -18,9 +18,7 @@ function uniqueUsername(prefix = 'user') {
 function flushRateLimitKeys(redis: RedisService) {
   return redis.client
     .keys('rate_limit:login:*')
-    .then((keys) =>
-      Promise.all(keys.map((key) => redis.client.del(key))),
-    );
+    .then((keys) => Promise.all(keys.map((key) => redis.client.del(key))));
 }
 
 describe('AuthController (integration)', () => {
@@ -68,10 +66,17 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('alice');
       const res = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' })
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        })
         .expect(201);
 
-      expect(res.body).toMatchObject({ username, email: `${username}@example.com` });
+      expect(res.body).toMatchObject({
+        username,
+        email: `${username}@example.com`,
+      });
       expect(res.body.id).toEqual(expect.any(Number));
       expect(res.body.passwordHash).toBeUndefined();
       expect(res.body.createdAt).toBeDefined();
@@ -81,31 +86,45 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('bob');
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' })
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        })
         .expect(201);
 
       const res = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: 'different@example.com', password: 'Password123!' })
+        .send({
+          username,
+          email: 'different@example.com',
+          password: 'Password123!',
+        })
         .expect(409);
 
       expect(res.body.statusCode).toBe(409);
       expect(res.body.code).toBe('CONFLICT');
-      expect(res.body.message).toBe(
-        'Username or email is already registered',
-      );
+      expect(res.body.message).toBe('Username or email is already registered');
     });
 
     it('rejects a duplicate email with 409', async () => {
       const username = uniqueUsername('carol');
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: 'shared@example.com', password: 'Password123!' })
+        .send({
+          username,
+          email: 'shared@example.com',
+          password: 'Password123!',
+        })
         .expect(201);
 
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username: uniqueUsername('carol2'), email: 'shared@example.com', password: 'Password123!' })
+        .send({
+          username: uniqueUsername('carol2'),
+          email: 'shared@example.com',
+          password: 'Password123!',
+        })
         .expect(409);
     });
 
@@ -122,7 +141,11 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('dave');
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' });
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        });
 
       const res = await request(app.getHttpServer())
         .post('/auth/login')
@@ -144,7 +167,11 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('erin');
       await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' });
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        });
 
       await request(app.getHttpServer())
         .post('/auth/login')
@@ -184,7 +211,11 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('grace');
       const login = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' })
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        })
         .then(() =>
           request(app.getHttpServer())
             .post('/auth/login')
@@ -206,7 +237,11 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('heidi');
       const login = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' })
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        })
         .then(() =>
           request(app.getHttpServer())
             .post('/auth/login')
@@ -239,7 +274,11 @@ describe('AuthController (integration)', () => {
       const username = uniqueUsername('ivan');
       const login = await request(app.getHttpServer())
         .post('/auth/register')
-        .send({ username, email: `${username}@example.com`, password: 'Password123!' })
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'Password123!',
+        })
         .then(() =>
           request(app.getHttpServer())
             .post('/auth/login')
@@ -278,4 +317,3 @@ describe('AuthController (integration)', () => {
     });
   });
 });
-

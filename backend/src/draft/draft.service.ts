@@ -45,7 +45,9 @@ const DRAFT_INCLUDE = {
   redTeamPlayer: { select: { id: true, username: true } },
 } satisfies Prisma.DraftInclude;
 
-type DraftWithPlayers = Prisma.DraftGetPayload<{ include: typeof DRAFT_INCLUDE }>;
+type DraftWithPlayers = Prisma.DraftGetPayload<{
+  include: typeof DRAFT_INCLUDE;
+}>;
 
 @Injectable()
 export class DraftService {
@@ -57,7 +59,10 @@ export class DraftService {
   ) {}
 
   /** Create a waiting draft; the creator claims their side immediately. */
-  async create(userId: number, dto: CreateDraftDto): Promise<CreateDraftResponse> {
+  async create(
+    userId: number,
+    dto: CreateDraftDto,
+  ): Promise<CreateDraftResponse> {
     const side: DraftSide = dto.side ?? 'BLUE';
 
     for (let attempt = 0; attempt < DRAFT_CODE_MAX_ATTEMPTS; attempt++) {
@@ -278,7 +283,9 @@ export class DraftService {
    * schema; a missing row (concurrent cleanup) is ignored.
    */
   private async hardDeleteDraft(draftId: number): Promise<void> {
-    await this.prisma.draft.delete({ where: { id: draftId } }).catch(() => undefined);
+    await this.prisma.draft
+      .delete({ where: { id: draftId } })
+      .catch(() => undefined);
     await this.sessions.deleteSession(draftId);
   }
 

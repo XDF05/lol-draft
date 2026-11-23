@@ -85,7 +85,8 @@ export default function ChampionPool({
           />
         </label>
         <span className="champion-count" aria-live="polite">
-          {visibleChampions.length} champion{visibleChampions.length === 1 ? '' : 's'}
+          {visibleChampions.length} champion
+          {visibleChampions.length === 1 ? '' : 's'}
         </span>
       </div>
 

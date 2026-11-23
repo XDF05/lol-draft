@@ -11,12 +11,23 @@ import type { ConnectionState } from '../../store/draftStore';
  * draft pages exist (T-008+).
  */
 
-const STYLES: Record<ConnectionState, { text: string; color: string; dot: string }> = {
+const STYLES: Record<
+  ConnectionState,
+  { text: string; color: string; dot: string }
+> = {
   idle: { text: 'Offline', color: 'var(--text-muted)', dot: '#9ca3af' },
   connecting: { text: 'Connecting…', color: 'var(--warning)', dot: '#f59e0b' },
   connected: { text: 'Live', color: 'var(--success)', dot: '#22c55e' },
-  reconnecting: { text: 'Reconnecting…', color: 'var(--warning)', dot: '#f59e0b' },
-  disconnected: { text: 'Disconnected — reconnecting', color: 'var(--warning)', dot: '#f59e0b' },
+  reconnecting: {
+    text: 'Reconnecting…',
+    color: 'var(--warning)',
+    dot: '#f59e0b',
+  },
+  disconnected: {
+    text: 'Disconnected — reconnecting',
+    color: 'var(--warning)',
+    dot: '#f59e0b',
+  },
   error: { text: 'Connection error', color: 'var(--danger)', dot: '#ef4444' },
 };
 
@@ -42,10 +53,7 @@ export default function ConnectionIndicator({
       className="connection-pill"
       style={{ color: style.color }}
     >
-      <span
-        className="connection-dot"
-        style={{ background: style.dot }}
-      />
+      <span className="connection-dot" style={{ background: style.dot }} />
       {style.text}
       {connectionState === 'connected' && latencyMs !== null && (
         <span style={{ fontWeight: 400 }}>{Math.round(latencyMs)} ms</span>

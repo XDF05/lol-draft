@@ -52,10 +52,7 @@ const PHASE_LABELS: Record<string, string> = {
   FINALIZATION: 'Finalization',
 };
 
-function championName(
-  championId: string,
-  names: Map<string, string>,
-): string {
+function championName(championId: string, names: Map<string, string>): string {
   return names.get(championId) ?? championId;
 }
 
@@ -114,9 +111,7 @@ function BansList({
       {bans.map((ban, index) => (
         <li key={`${ban.championId}-${ban.team}-${index}`}>
           {championName(ban.championId, names)}{' '}
-          <span
-            style={{ color: ban.team === 'BLUE' ? '#1d4ed8' : '#b91c1c' }}
-          >
+          <span style={{ color: ban.team === 'BLUE' ? '#1d4ed8' : '#b91c1c' }}>
             ({ban.team.toLowerCase()}, P{ban.phase})
           </span>
         </li>
@@ -127,7 +122,9 @@ function BansList({
 
 export default function SpectatorView({ code }: { code: string }) {
   const { champions } = useChampionData();
-  const names = new Map(champions.map((champion) => [champion.id, champion.name]));
+  const names = new Map(
+    champions.map((champion) => [champion.id, champion.name]),
+  );
 
   const [snapshot, setSnapshot] = useState<PublicDraftView | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -158,7 +155,6 @@ export default function SpectatorView({ code }: { code: string }) {
   const picks = live.picks ?? snapshot?.picks ?? [];
   const turn = live.currentTurnInfo ?? snapshot?.turn ?? null;
   const completedAt = live.completedAt ?? snapshot?.completedAt ?? null;
-
 
   const header = (
     <div
@@ -258,7 +254,10 @@ export default function SpectatorView({ code }: { code: string }) {
             The final pick order is locked.
           </p>
           {completedAt && (
-            <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 0 }}>
+            <p
+              className="muted"
+              style={{ fontSize: '0.85rem', marginBottom: 0 }}
+            >
               Completed {new Date(completedAt).toLocaleString()}
             </p>
           )}

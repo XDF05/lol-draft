@@ -24,11 +24,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 export type Team = 'BLUE' | 'RED';
 
 export type DraftPhase =
-  | 'BANNING_P1'
-  | 'PICKING_P1'
-  | 'BANNING_P2'
-  | 'PICKING_P2'
-  | 'FINALIZATION';
+  'BANNING_P1' | 'PICKING_P1' | 'BANNING_P2' | 'PICKING_P2' | 'FINALIZATION';
 
 /** Turn snapshot broadcast on `turn.start` (also used by timer events). */
 export interface TurnStartPayload {

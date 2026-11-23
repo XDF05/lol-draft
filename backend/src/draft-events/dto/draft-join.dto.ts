@@ -1,4 +1,10 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 /** Payload for the `draft.join` event (room management entry point). */
 export class DraftJoinDto {

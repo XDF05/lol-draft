@@ -1,7 +1,6 @@
 'use client';
 
 import type { CSSProperties } from 'react';
-import { useIsMobile } from '../../lib/useMediaQuery';
 import type { Champion } from '../../lib/types';
 
 export type ChampionCardStatus = 'available' | 'picked' | 'banned';
@@ -38,7 +37,6 @@ export function ChampionCard({
   /** When true, render a skeleton placeholder instead of the card content. */
   loading?: boolean;
 }) {
-  const isMobile = useIsMobile();
   const isUnavailable = status === 'picked' || status === 'banned';
   const cardDisabled = disabled || isUnavailable;
   const cardStyle = { '--accent': accent } as CSSProperties;

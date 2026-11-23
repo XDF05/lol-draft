@@ -1,11 +1,14 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { ErrorBoundary } from './ErrorBoundary';
 
 function Boom({ message = 'Kaboom' }: { message?: string }): React.ReactNode {
   throw new Error(message);
 }
 
-function renderBoundary(fallback?: React.ReactNode, onError?: (e: Error) => void) {
+function renderBoundary(
+  fallback?: React.ReactNode,
+  onError?: (e: Error) => void,
+) {
   return render(
     <ErrorBoundary fallback={fallback} onError={onError}>
       <Boom />
@@ -14,7 +17,9 @@ function renderBoundary(fallback?: React.ReactNode, onError?: (e: Error) => void
 }
 
 describe('ErrorBoundary (error feedback)', () => {
-  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const consoleError = jest
+    .spyOn(console, 'error')
+    .mockImplementation(() => {});
 
   afterEach(() => {
     consoleError.mockClear();
@@ -28,7 +33,9 @@ describe('ErrorBoundary (error feedback)', () => {
     renderBoundary();
     expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
     expect(screen.getByText(/Kaboom/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Try again/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Try again/i }),
+    ).toBeInTheDocument();
   });
 
   it('renders a custom fallback when provided', () => {
@@ -54,7 +61,9 @@ describe('ErrorBoundary (error feedback)', () => {
 
     // Initial render throws -> fallback shown.
     expect(screen.getByText(/Something went wrong/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Try again/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Try again/i }),
+    ).toBeInTheDocument();
 
     act(() => {
       rerender(<div data-testid="recovered">recovered</div>);

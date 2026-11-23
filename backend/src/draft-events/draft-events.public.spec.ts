@@ -10,7 +10,6 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { RiotApiService } from '../champions/riot-api.service';
 import { DraftHttpExceptionFilter } from '../common/filters/draft-http-exception.filter';
-import { WAITING_DRAFT_TTL_MS } from '../draft/draft.constants';
 
 /** Await a single named socket event. */
 function once(socket: ClientSocket, event: string): Promise<any> {
@@ -61,9 +60,21 @@ describe('Spectator public access (end-to-end)', () => {
         getChampions: jest.fn().mockResolvedValue({
           count: 3,
           data: [
-            { id: 'Ahri', name: 'Ahri', iconUrl: 'https://cdn/14.1.1/img/champion/Ahri.png' },
-            { id: 'Akali', name: 'Akali', iconUrl: 'https://cdn/14.1.1/img/champion/Akali.png' },
-            { id: 'Annie', name: 'Annie', iconUrl: 'https://cdn/14.1.1/img/champion/Annie.png' },
+            {
+              id: 'Ahri',
+              name: 'Ahri',
+              iconUrl: 'https://cdn/14.1.1/img/champion/Ahri.png',
+            },
+            {
+              id: 'Akali',
+              name: 'Akali',
+              iconUrl: 'https://cdn/14.1.1/img/champion/Akali.png',
+            },
+            {
+              id: 'Annie',
+              name: 'Annie',
+              iconUrl: 'https://cdn/14.1.1/img/champion/Annie.png',
+            },
           ],
         }),
       })
@@ -146,22 +157,27 @@ describe('Spectator public access (end-to-end)', () => {
         },
       });
       await prisma.pick.create({
-        data: { draftId: draft.id, championId: 'Akali', playerId: 1, team: 'BLUE', locked: true },
+        data: {
+          draftId: draft.id,
+          championId: 'Akali',
+          playerId: 1,
+          team: 'BLUE',
+          locked: true,
+        },
       });
 
       const socket = await connect(app);
 
       // Anonymous spectator: no auth token, joins via public.join only.
       const ack = await new Promise<any>((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('public.join timeout')), 10000);
-        socket.emit(
-          'public.join',
-          { draftCode: 'PUB1234' },
-          (data: any) => {
-            clearTimeout(t);
-            resolve(data);
-          },
+        const t = setTimeout(
+          () => reject(new Error('public.join timeout')),
+          10000,
         );
+        socket.emit('public.join', { draftCode: 'PUB1234' }, (data: any) => {
+          clearTimeout(t);
+          resolve(data);
+        });
       });
 
       expect(ack.ok).toBe(true);
@@ -177,14 +193,10 @@ describe('Spectator public access (end-to-end)', () => {
 
       const err = await new Promise<any>((resolve, reject) => {
         const t = setTimeout(() => reject(new Error('timeout')), 10000);
-        socket.emit(
-          'public.join',
-          { draftCode: 'NOPECODE' },
-          (data: any) => {
-            clearTimeout(t);
-            resolve(data);
-          },
-        );
+        socket.emit('public.join', { draftCode: 'NOPECODE' }, (data: any) => {
+          clearTimeout(t);
+          resolve(data);
+        });
         socket.on('exception', (data: any) => {
           clearTimeout(t);
           resolve(data);
@@ -221,15 +233,14 @@ describe('Spectator public access (end-to-end)', () => {
       const socket = await connect(app);
 
       const update = await new Promise<any>((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('draft.update timeout')), 10000);
-        socket.emit(
-          'public.join',
-          { draftCode: 'PUB5678' },
-          (data: any) => {
-            clearTimeout(t);
-            resolve(data);
-          },
+        const t = setTimeout(
+          () => reject(new Error('draft.update timeout')),
+          10000,
         );
+        socket.emit('public.join', { draftCode: 'PUB5678' }, (data: any) => {
+          clearTimeout(t);
+          resolve(data);
+        });
         socket.once('draft.update', (data: any) => {
           clearTimeout(t);
           resolve(data);
@@ -244,7 +255,7 @@ describe('Spectator public access (end-to-end)', () => {
     });
 
     it('receives completed results when joining a completed draft', async () => {
-      const draft = await createDraftInDb({
+      await createDraftInDb({
         code: 'PUBRESULTS',
         status: 'COMPLETE',
         completedAt: new Date(),
@@ -266,7 +277,7 @@ describe('Spectator public access (end-to-end)', () => {
 
   describe('reconnect behavior', () => {
     it('a spectator can reconnect to the same draft and receive the current snapshot', async () => {
-      const draft = await createDraftInDb({
+      await createDraftInDb({
         code: 'PUBRECONN',
         status: 'COMPLETE',
         completedAt: new Date(),
@@ -307,7 +318,13 @@ describe('Spectator public access (end-to-end)', () => {
         completedAt: new Date(),
       });
       await prisma.pick.create({
-        data: { draftId: draft.id, championId: 'Akali', playerId: 1, team: 'BLUE', locked: true },
+        data: {
+          draftId: draft.id,
+          championId: 'Akali',
+          playerId: 1,
+          team: 'BLUE',
+          locked: true,
+        },
       });
 
       const res = await request(app.getHttpServer())

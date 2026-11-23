@@ -8,7 +8,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import api, { authStorage, configureAuthApi, type AuthTokens } from '../lib/api';
+import api, {
+  authStorage,
+  configureAuthApi,
+  type AuthTokens,
+} from '../lib/api';
 import { closeDraftSocket } from '../lib/socket';
 
 export interface AuthUser {

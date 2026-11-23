@@ -9,7 +9,7 @@ import { WsJwtGuard } from './ws-jwt.guard';
 import { Team } from './socket-events';
 
 /** Minimal Socket mock: only what handlePickSwap reads. */
-function mockClient(userId: number, draftId: number, team: Team) {
+function mockClient(userId: number, draftId: number, _team: Team) {
   return {
     data: {
       user: { id: userId, username: `user${userId}` },
@@ -19,12 +19,7 @@ function mockClient(userId: number, draftId: number, team: Team) {
 }
 
 /** A locked pick row owned by a team. */
-function pickRow(
-  id: number,
-  championId: string,
-  team: Team,
-  locked = true,
-) {
+function pickRow(id: number, championId: string, team: Team, locked = true) {
   return { id, draftId: 1, championId, playerId: 1, team, locked };
 }
 
@@ -83,16 +78,10 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
   });
 
   describe('pick.swap — team-internal constraints', () => {
-    const blueTeam = [
-      pickRow(1, 'Ahri', 'BLUE'),
-      pickRow(2, 'Akali', 'BLUE'),
-    ];
-    const redTeam = [
-      pickRow(3, 'Zed', 'RED'),
-      pickRow(4, 'Katarina', 'RED'),
-    ];
+    const blueTeam = [pickRow(1, 'Ahri', 'BLUE'), pickRow(2, 'Akali', 'BLUE')];
+    const redTeam = [pickRow(3, 'Zed', 'RED'), pickRow(4, 'Katarina', 'RED')];
 
-    it('swaps two of the caller\'s own locked picks and broadcasts the new order', async () => {
+    it("swaps two of the caller's own locked picks and broadcasts the new order", async () => {
       const client = mockClient(10, 1, 'BLUE');
       const session = {
         draftId: 1,
@@ -123,7 +112,11 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
         ]);
       mockPrisma.pick.update.mockResolvedValue({});
       // Transaction resolves without error.
-      mockPrisma.$transaction.mockResolvedValue([undefined, undefined, undefined]);
+      mockPrisma.$transaction.mockResolvedValue([
+        undefined,
+        undefined,
+        undefined,
+      ]);
       mockSessions.replacePicks.mockResolvedValue(session);
 
       const result = await gateway.handlePickSwap(client, {
@@ -150,10 +143,30 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
       expect(mockSessions.replacePicks).toHaveBeenCalledWith(
         1,
         expect.arrayContaining([
-          expect.objectContaining({ id: 1, championId: 'Akali', team: 'BLUE', locked: true }),
-          expect.objectContaining({ id: 2, championId: 'Ahri', team: 'BLUE', locked: true }),
-          expect.objectContaining({ id: 3, championId: 'Zed', team: 'RED', locked: true }),
-          expect.objectContaining({ id: 4, championId: 'Katarina', team: 'RED', locked: true }),
+          expect.objectContaining({
+            id: 1,
+            championId: 'Akali',
+            team: 'BLUE',
+            locked: true,
+          }),
+          expect.objectContaining({
+            id: 2,
+            championId: 'Ahri',
+            team: 'BLUE',
+            locked: true,
+          }),
+          expect.objectContaining({
+            id: 3,
+            championId: 'Zed',
+            team: 'RED',
+            locked: true,
+          }),
+          expect.objectContaining({
+            id: 4,
+            championId: 'Katarina',
+            team: 'RED',
+            locked: true,
+          }),
         ]),
       );
       expect((gateway as any).broadcast).toHaveBeenCalledWith(
@@ -171,12 +184,21 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
     it('rejects swapping the same pick with itself', async () => {
       const client = mockClient(10, 1, 'BLUE');
       const session = {
-        draftId: 1, code: 'CODE1', status: 'IN_PROGRESS', currentTurn: 21,
-        bans: [], picks: [...blueTeam, ...redTeam], pending: {},
-        skips: { BLUE: 0, RED: 0 }, updatedAt: new Date().toISOString(),
+        draftId: 1,
+        code: 'CODE1',
+        status: 'IN_PROGRESS',
+        currentTurn: 21,
+        bans: [],
+        picks: [...blueTeam, ...redTeam],
+        pending: {},
+        skips: { BLUE: 0, RED: 0 },
+        updatedAt: new Date().toISOString(),
       };
       (gateway as any).requireDraftContext.mockResolvedValue({
-        draftId: 1, session, team: 'BLUE', user: { id: 10, username: 'user10' },
+        draftId: 1,
+        session,
+        team: 'BLUE',
+        user: { id: 10, username: 'user10' },
       });
 
       await expect(
@@ -188,12 +210,21 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
     it('rejects swapping picks not part of this draft', async () => {
       const client = mockClient(10, 1, 'BLUE');
       const session = {
-        draftId: 1, code: 'CODE1', status: 'IN_PROGRESS', currentTurn: 21,
-        bans: [], picks: [...blueTeam, ...redTeam], pending: {},
-        skips: { BLUE: 0, RED: 0 }, updatedAt: new Date().toISOString(),
+        draftId: 1,
+        code: 'CODE1',
+        status: 'IN_PROGRESS',
+        currentTurn: 21,
+        bans: [],
+        picks: [...blueTeam, ...redTeam],
+        pending: {},
+        skips: { BLUE: 0, RED: 0 },
+        updatedAt: new Date().toISOString(),
       };
       (gateway as any).requireDraftContext.mockResolvedValue({
-        draftId: 1, session, team: 'BLUE', user: { id: 10, username: 'user10' },
+        draftId: 1,
+        session,
+        team: 'BLUE',
+        user: { id: 10, username: 'user10' },
       });
       // Only one of the two ids exists in this draft.
       mockPrisma.pick.findMany.mockResolvedValue([blueTeam[0]]);
@@ -207,12 +238,21 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
     it('rejects swapping a pick belonging to the opposing team', async () => {
       const client = mockClient(10, 1, 'BLUE');
       const session = {
-        draftId: 1, code: 'CODE1', status: 'IN_PROGRESS', currentTurn: 21,
-        bans: [], picks: [...blueTeam, ...redTeam], pending: {},
-        skips: { BLUE: 0, RED: 0 }, updatedAt: new Date().toISOString(),
+        draftId: 1,
+        code: 'CODE1',
+        status: 'IN_PROGRESS',
+        currentTurn: 21,
+        bans: [],
+        picks: [...blueTeam, ...redTeam],
+        pending: {},
+        skips: { BLUE: 0, RED: 0 },
+        updatedAt: new Date().toISOString(),
       };
       (gateway as any).requireDraftContext.mockResolvedValue({
-        draftId: 1, session, team: 'BLUE', user: { id: 10, username: 'user10' },
+        draftId: 1,
+        session,
+        team: 'BLUE',
+        user: { id: 10, username: 'user10' },
       });
       mockPrisma.pick.findMany.mockResolvedValue([...blueTeam, ...redTeam]);
 
@@ -227,15 +267,26 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
       const client = mockClient(10, 1, 'BLUE');
       const unlockedPick = { ...pickRow(1, 'Ahri', 'BLUE'), locked: false };
       const session = {
-        draftId: 1, code: 'CODE1', status: 'IN_PROGRESS', currentTurn: 21,
-        bans: [], picks: [unlockedPick, pickRow(2, 'Akali', 'BLUE'), ...redTeam],
-        pending: {}, skips: { BLUE: 0, RED: 0 }, updatedAt: new Date().toISOString(),
+        draftId: 1,
+        code: 'CODE1',
+        status: 'IN_PROGRESS',
+        currentTurn: 21,
+        bans: [],
+        picks: [unlockedPick, pickRow(2, 'Akali', 'BLUE'), ...redTeam],
+        pending: {},
+        skips: { BLUE: 0, RED: 0 },
+        updatedAt: new Date().toISOString(),
       };
       (gateway as any).requireDraftContext.mockResolvedValue({
-        draftId: 1, session, team: 'BLUE', user: { id: 10, username: 'user10' },
+        draftId: 1,
+        session,
+        team: 'BLUE',
+        user: { id: 10, username: 'user10' },
       });
       mockPrisma.pick.findMany.mockResolvedValue([
-        unlockedPick, pickRow(2, 'Akali', 'BLUE'), ...redTeam,
+        unlockedPick,
+        pickRow(2, 'Akali', 'BLUE'),
+        ...redTeam,
       ]);
 
       await expect(
@@ -247,17 +298,30 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
     it('allows repeated swaps during Finalization (unlimited swaps)', async () => {
       const client = mockClient(10, 1, 'BLUE');
       const baseSession = {
-        draftId: 1, code: 'CODE1', status: 'IN_PROGRESS', currentTurn: 21,
-        bans: [], picks: [...blueTeam, ...redTeam], pending: {},
-        skips: { BLUE: 0, RED: 0 }, updatedAt: new Date().toISOString(),
+        draftId: 1,
+        code: 'CODE1',
+        status: 'IN_PROGRESS',
+        currentTurn: 21,
+        bans: [],
+        picks: [...blueTeam, ...redTeam],
+        pending: {},
+        skips: { BLUE: 0, RED: 0 },
+        updatedAt: new Date().toISOString(),
       };
 
       (gateway as any).requireDraftContext.mockResolvedValue({
-        draftId: 1, session: baseSession, team: 'BLUE', user: { id: 10, username: 'user10' },
+        draftId: 1,
+        session: baseSession,
+        team: 'BLUE',
+        user: { id: 10, username: 'user10' },
       });
       mockPrisma.pick.findMany.mockResolvedValue([...blueTeam, ...redTeam]);
       mockPrisma.pick.update.mockResolvedValue({});
-      mockPrisma.$transaction.mockResolvedValue([undefined, undefined, undefined]);
+      mockPrisma.$transaction.mockResolvedValue([
+        undefined,
+        undefined,
+        undefined,
+      ]);
       mockSessions.replacePicks.mockResolvedValue(baseSession);
 
       // First swap: exchange Ahri (1) and Akali (2).
@@ -274,12 +338,21 @@ describe('DraftEventsGateway — Finalization swaps (unit)', () => {
     it('rejects swaps outside of Finalization', async () => {
       const client = mockClient(10, 1, 'BLUE');
       const notFinalization = {
-        draftId: 1, code: 'CODE1', status: 'IN_PROGRESS', currentTurn: 7,
-        bans: [], picks: [...blueTeam, ...redTeam], pending: {},
-        skips: { BLUE: 0, RED: 0 }, updatedAt: new Date().toISOString(),
+        draftId: 1,
+        code: 'CODE1',
+        status: 'IN_PROGRESS',
+        currentTurn: 7,
+        bans: [],
+        picks: [...blueTeam, ...redTeam],
+        pending: {},
+        skips: { BLUE: 0, RED: 0 },
+        updatedAt: new Date().toISOString(),
       };
       (gateway as any).requireDraftContext.mockResolvedValue({
-        draftId: 1, session: notFinalization, team: 'BLUE', user: { id: 10, username: 'user10' },
+        draftId: 1,
+        session: notFinalization,
+        team: 'BLUE',
+        user: { id: 10, username: 'user10' },
       });
 
       await expect(

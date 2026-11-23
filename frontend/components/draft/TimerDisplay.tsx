@@ -31,9 +31,5 @@ export default function TimerDisplay({ style }: TimerDisplayProps) {
     ...style,
   };
 
-  return (
-    <span style={baseStyle}>
-      {remaining}s
-    </span>
-  );
+  return <span style={baseStyle}>{remaining}s</span>;
 }

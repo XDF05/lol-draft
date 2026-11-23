@@ -1,5 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ThemeProvider, useTheme, type Theme } from '../../context/ThemeContext';
+import {
+  ThemeProvider,
+  useTheme,
+  type Theme,
+} from '../../context/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 
 /** Minimal consumer that exposes the current theme via its rendered text. */

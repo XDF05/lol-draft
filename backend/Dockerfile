@@ -20,6 +20,16 @@ COPY prisma ./prisma
 COPY src ./src
 RUN npx prisma generate && npm run build && npm prune --omit=dev
 
+# --- Migration runner (one-shot Compose service) ---
+# Keeps the Prisma CLI and dev dependencies out of the runtime image while
+# still applying the checked-in migrations before the API starts.
+FROM base AS migrator
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./package.json
+COPY prisma.config.ts ./prisma.config.ts
+COPY prisma ./prisma
+CMD ["npx", "prisma", "migrate", "deploy"]
+
 # --- Runtime ---
 FROM base AS runner
 ENV NODE_ENV=production

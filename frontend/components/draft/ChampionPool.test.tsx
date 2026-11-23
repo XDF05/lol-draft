@@ -13,16 +13,18 @@ function statusMap(entries: Array<[string, ChampionCardStatus]>) {
   return new Map(entries);
 }
 
-function renderPool(overrides: {
-  status?: 'idle' | 'loading' | 'ready' | 'error';
-  error?: string | null;
-  champions?: Champion[];
-  statusById?: Map<string, ChampionCardStatus>;
-  selectedId?: string | null;
-  disabled?: boolean;
-  accent?: string;
-  onToggle?: (championId: string) => void;
-} = {}) {
+function renderPool(
+  overrides: {
+    status?: 'idle' | 'loading' | 'ready' | 'error';
+    error?: string | null;
+    champions?: Champion[];
+    statusById?: Map<string, ChampionCardStatus>;
+    selectedId?: string | null;
+    disabled?: boolean;
+    accent?: string;
+    onToggle?: (championId: string) => void;
+  } = {},
+) {
   const props = {
     champions,
     status: 'ready' as const,

@@ -16,11 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ConnectionHealthService } from './connection-health.service';
 import { DraftSessionService } from './draft-session.service';
 import { TurnManagerService } from './turn-manager.service';
-import {
-  banPhaseOf,
-  initialTurnPayload,
-  turnInfo,
-} from './turn-schedule';
+import { banPhaseOf, initialTurnPayload, turnInfo } from './turn-schedule';
 import {
   draftRoom,
   BanConfirmedEntry,
@@ -208,7 +204,11 @@ export class DraftEventsGateway
     const user = this.requireUser(client);
 
     const draft = await this.prismaDraftByCode(data.code);
-    const team = this.teamOf(draft.blueTeamPlayerId, draft.redTeamPlayerId, user);
+    const team = this.teamOf(
+      draft.blueTeamPlayerId,
+      draft.redTeamPlayerId,
+      user,
+    );
     if (data.team && data.team !== team) {
       throw new WsException(`You are assigned to the ${team} side`);
     }
@@ -279,7 +279,9 @@ export class DraftEventsGateway
   ): Promise<void> {
     this.untrackPresence(draftId, user.id, client.id);
 
-    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
+    const draft = await this.prisma.draft.findUnique({
+      where: { id: draftId },
+    });
     if (draft) {
       const isParticipant =
         draft.blueTeamPlayerId === user.id || draft.redTeamPlayerId === user.id;
@@ -394,7 +396,7 @@ export class DraftEventsGateway
     @MessageBody() data: ChampionSelectDto,
   ): Promise<{ ok: true; championId: string | null }> {
     const { draftId, session, team } = await this.requireDraftContext(client);
-    const turn = this.requireTurn(session, team, 'BAN');
+    this.requireTurn(session, team, 'BAN');
 
     const championId = data.championId ?? null;
     if (championId) {
@@ -430,7 +432,10 @@ export class DraftEventsGateway
     }
 
     try {
-      const { state, championId } = await this.sessions.confirmBan(draftId, team);
+      const { state, championId } = await this.sessions.confirmBan(
+        draftId,
+        team,
+      );
       if (!championId) {
         this.turnManager.releaseTurnAction(draftId, turn.turnNumber);
         throw new WsException('No pending ban selection to lock');
@@ -670,8 +675,7 @@ export class DraftEventsGateway
     @MessageBody() data: HealthPingPayload,
   ): { ok: true; serverTime: number; latencyMs: number | null } {
     const sentAt = typeof data?.sentAt === 'number' ? data.sentAt : null;
-    const latencyMs =
-      sentAt !== null ? Date.now() - sentAt : null;
+    const latencyMs = sentAt !== null ? Date.now() - sentAt : null;
     const recorded = this.health.recordPing(client.id, latencyMs);
     return { ok: true, serverTime: Date.now(), latencyMs: recorded };
   }
@@ -750,9 +754,7 @@ export class DraftEventsGateway
    * staged (pending) selections never leave the participants' room.
    */
   private broadcast(draftId: number, event: string, payload: unknown): void {
-    this.server
-      .to(draftRoom(draftId))
-      .emit(event as never, payload as never);
+    this.server.to(draftRoom(draftId)).emit(event as never, payload as never);
     this.server
       .to(publicDraftRoom(draftId))
       .emit(event as never, publicBroadcastPayload(event, payload) as never);
@@ -829,12 +831,18 @@ export class DraftEventsGateway
       throw new WsException('Join a draft room first (draft.join)');
     }
 
-    const draft = await this.prisma.draft.findUnique({ where: { id: draftId } });
+    const draft = await this.prisma.draft.findUnique({
+      where: { id: draftId },
+    });
     if (!draft) {
       throw new WsException('Draft no longer exists');
     }
 
-    const team = this.teamOf(draft.blueTeamPlayerId, draft.redTeamPlayerId, user);
+    const team = this.teamOf(
+      draft.blueTeamPlayerId,
+      draft.redTeamPlayerId,
+      user,
+    );
     const session = await this.sessions.getOrCreate(draftId);
     this.applyRecordStatus(session, draft.status);
     return { draftId, session, team, user };

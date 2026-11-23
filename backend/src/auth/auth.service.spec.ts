@@ -170,7 +170,10 @@ describe('AuthService (unit)', () => {
       });
 
       await expect(
-        service.login({ username: dto.username, password: 'WrongPassword123!' }),
+        service.login({
+          username: dto.username,
+          password: 'WrongPassword123!',
+        }),
       ).rejects.toBeInstanceOf(UnauthorizedException);
     });
 
@@ -193,7 +196,10 @@ describe('AuthService (unit)', () => {
 
     it('rotates the refresh token and issues a new pair', async () => {
       mockRedis.getDel.mockResolvedValue(storedUserId);
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 1, username: 'alice' });
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: 1,
+        username: 'alice',
+      });
 
       const result = await service.refresh(dto);
 

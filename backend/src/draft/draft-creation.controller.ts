@@ -46,5 +46,4 @@ export class DraftCreationController {
   ) {
     return this.draftService.join(req.user.id, code, dto);
   }
-
 }

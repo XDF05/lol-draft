@@ -1,4 +1,8 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
 import { Champion, ChampionsResponse } from './entities/champion.entity';
 
@@ -95,7 +99,9 @@ export class RiotApiService {
       raw = await this.redis.get(CHAMPIONS_CACHE_KEY);
     } catch (err) {
       // Redis down: degrade to a live fetch instead of failing the request.
-      this.logger.warn(`Redis read failed, bypassing cache: ${this.describe(err)}`);
+      this.logger.warn(
+        `Redis read failed, bypassing cache: ${this.describe(err)}`,
+      );
       return null;
     }
     if (!raw) {
@@ -131,11 +137,17 @@ export class RiotApiService {
     }
   }
 
-  private async writeCache(patch: string, pool: ChampionsResponse): Promise<void> {
+  private async writeCache(
+    patch: string,
+    pool: ChampionsResponse,
+  ): Promise<void> {
     try {
       // No TTL on purpose: the payload stays valid while `patch` is still
       // the latest Data Dragon version (tracked in champions:versions).
-      await this.redis.set(CHAMPIONS_CACHE_KEY, JSON.stringify({ patch, ...pool }));
+      await this.redis.set(
+        CHAMPIONS_CACHE_KEY,
+        JSON.stringify({ patch, ...pool }),
+      );
     } catch (err) {
       this.logger.warn(
         `Redis write failed, champion data not cached: ${this.describe(err)}`,
@@ -177,7 +189,11 @@ export class RiotApiService {
     }
 
     try {
-      await this.redis.set(CHAMPIONS_VERSIONS_KEY, latest, VERSIONS_TTL_SECONDS);
+      await this.redis.set(
+        CHAMPIONS_VERSIONS_KEY,
+        latest,
+        VERSIONS_TTL_SECONDS,
+      );
     } catch (err) {
       this.logger.warn(
         `Redis write failed, latest patch not cached: ${this.describe(err)}`,
@@ -254,7 +270,9 @@ export class RiotApiService {
     const url = `${this.baseUrl()}/api/versions.json`;
     const payload: unknown = await this.getJson(url, timeoutMs);
     if (!Array.isArray(payload) || payload.length === 0) {
-      throw new Error('Data Dragon versions.json returned an unexpected payload shape');
+      throw new Error(
+        'Data Dragon versions.json returned an unexpected payload shape',
+      );
     }
     // Newest first per Data Dragon docs; element [0] is the latest patch.
     const latest = payload[0];
@@ -297,11 +315,16 @@ export class RiotApiService {
    * and the icon are taken (no titles/lore). Icon URLs follow the CDN icon
    * path: <base>/cdn/<patch>/img/champion/<champion>.png.
    */
-  private normalizeChampions(payload: unknown, patch: string): ChampionsResponse {
+  private normalizeChampions(
+    payload: unknown,
+    patch: string,
+  ): ChampionsResponse {
     const record = (payload ?? null) as Record<string, unknown> | null;
     const map = record?.data;
     if (map === null || typeof map !== 'object' || Array.isArray(map)) {
-      throw new Error('Data Dragon champion.json returned an unexpected payload shape');
+      throw new Error(
+        'Data Dragon champion.json returned an unexpected payload shape',
+      );
     }
 
     const data: Champion[] = [];

@@ -58,14 +58,20 @@ export interface JoinDraftResponse {
 }
 
 /** Create a waiting draft; the creator claims `side` (default BLUE). */
-export async function createDraft(side: DraftSide): Promise<CreateDraftResponse> {
-  const { data } = await api.post<CreateDraftResponse>('/draft/create', { side });
+export async function createDraft(
+  side: DraftSide,
+): Promise<CreateDraftResponse> {
+  const { data } = await api.post<CreateDraftResponse>('/draft/create', {
+    side,
+  });
   return data;
 }
 
 /** Draft lookup for the room page (participants, status). */
 export async function fetchDraftByCode(code: string): Promise<DraftView> {
-  const { data } = await api.get<DraftView>(`/draft/${encodeURIComponent(code)}`);
+  const { data } = await api.get<DraftView>(
+    `/draft/${encodeURIComponent(code)}`,
+  );
   return data;
 }
 

@@ -1,11 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import {
-  BanConfirmedEntry,
-  PickConfirmedEntry,
-  Team,
-} from './socket-events';
+import { BanConfirmedEntry, PickConfirmedEntry, Team } from './socket-events';
 import { banPhaseOf, turnInfo } from './turn-schedule';
 
 /**
@@ -143,10 +139,7 @@ export class DraftSessionService {
   }
 
   /** Drop the team's pending selection entirely (e.g. on draft.leave). */
-  async clearPending(
-    draftId: number,
-    team: Team,
-  ): Promise<DraftSessionState> {
+  async clearPending(draftId: number, team: Team): Promise<DraftSessionState> {
     const state = await this.getOrCreate(draftId);
     delete state.pending[team];
     await this.save(state);
@@ -204,10 +197,7 @@ export class DraftSessionService {
   }
 
   /** Record a voluntary skip (ban.skip / pick.skip) for the acting team. */
-  async recordSkip(
-    draftId: number,
-    team: Team,
-  ): Promise<DraftSessionState> {
+  async recordSkip(draftId: number, team: Team): Promise<DraftSessionState> {
     const state = await this.getOrCreate(draftId);
     state.pending[team] = null;
     state.skips[team] = (state.skips[team] ?? 0) + 1;

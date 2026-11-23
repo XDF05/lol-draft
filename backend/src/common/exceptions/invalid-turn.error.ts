@@ -6,7 +6,7 @@ import { BadRequestException } from '@nestjs/common';
  */
 export class InvalidTurnException extends BadRequestException {
   readonly code = 'INVALID_TURN';
-  constructor(message = "It is not your turn to act.") {
+  constructor(message = 'It is not your turn to act.') {
     super({ code: 'INVALID_TURN', message });
   }
 }

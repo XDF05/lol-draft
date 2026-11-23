@@ -75,7 +75,7 @@ describe('Draft room lifecycle (integration)', () => {
 
   describe('POST /draft/create', () => {
     it('creates a waiting draft and assigns the creator to the chosen side', async () => {
-      const { username, token } = await registerAndLogin(app);
+      const { token } = await registerAndLogin(app);
 
       const res = await request(app.getHttpServer())
         .post('/draft/create')
@@ -199,7 +199,6 @@ describe('Draft room lifecycle (integration)', () => {
           .send({ side: 'RED' }),
       ]);
 
-      const codes = results.map((r) => r.body.code ?? null);
       const statuses = results.map((r) => r.status);
       const won = statuses.filter((s) => s === 201).length;
       const lost = statuses.filter((s) => s === 409).length;
@@ -300,8 +299,12 @@ describe('Draft room lifecycle (integration)', () => {
       expect(res.body.code).toBe('PUBLIC1AB');
       expect(res.body.status).toBe('COMPLETE');
       expect(res.body.completedAt).toBeDefined();
-      expect(res.body.bans.some((b: any) => b.championId === 'Ahri')).toBe(true);
-      expect(res.body.picks.some((p: any) => p.championId === 'Akali')).toBe(true);
+      expect(res.body.bans.some((b: any) => b.championId === 'Ahri')).toBe(
+        true,
+      );
+      expect(res.body.picks.some((p: any) => p.championId === 'Akali')).toBe(
+        true,
+      );
       // No pending (unlocked) selections are exposed publicly.
       expect(res.body.pending).toBeUndefined();
     });

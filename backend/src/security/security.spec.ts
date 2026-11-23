@@ -221,15 +221,11 @@ describe('Security regression suite', () => {
         },
       });
 
-      await request(app.getHttpServer())
-        .get('/draft/SEC1234')
-        .expect(401);
+      await request(app.getHttpServer()).get('/draft/SEC1234').expect(401);
       await request(app.getHttpServer())
         .get('/public/draft/SEC1234')
         .expect(200);
-      await request(app.getHttpServer())
-        .get('/champions')
-        .expect(200);
+      await request(app.getHttpServer()).get('/champions').expect(200);
     });
   });
 
@@ -263,12 +259,12 @@ describe('Security regression suite', () => {
           .send({ refresh_token: refreshToken }),
       ]);
 
-      expect(rotations.filter((response) => response.status === 201)).toHaveLength(
-        1,
-      );
-      expect(rotations.filter((response) => response.status === 401)).toHaveLength(
-        1,
-      );
+      expect(
+        rotations.filter((response) => response.status === 201),
+      ).toHaveLength(1);
+      expect(
+        rotations.filter((response) => response.status === 401),
+      ).toHaveLength(1);
 
       await request(app.getHttpServer())
         .post('/auth/refresh')
@@ -316,7 +312,7 @@ describe('Security regression suite', () => {
     it('rejects SQL-injection-shaped registration input without creating a user', async () => {
       const before = await prisma.user.count();
       const payload = {
-        username: "x'; DROP TABLE \"User\";--",
+        username: 'x\'; DROP TABLE "User";--',
         email: 'injection@example.com',
         password: 'Password123!',
       };
@@ -338,7 +334,7 @@ describe('Security regression suite', () => {
         .set('Authorization', `Bearer ${token}`)
         .expect(404);
       await request(app.getHttpServer())
-        .post(`/draft/${encodeURIComponent("x'; DROP TABLE \"Draft\";--")}/join`)
+        .post(`/draft/${encodeURIComponent('x\'; DROP TABLE "Draft";--')}/join`)
         .set('Authorization', `Bearer ${token}`)
         .send({ side: 'RED' })
         .expect(404);
@@ -465,7 +461,7 @@ describe('Security regression suite', () => {
       expect(joined.ack?.ok).toBe(true);
 
       const invalid = await emitForOutcome(socket, 'ban.select', {
-        championId: "x'; DROP TABLE \"Ban\";--",
+        championId: 'x\'; DROP TABLE "Ban";--',
       });
       expect(invalid.exception?.message).toContain(
         'championId contains invalid characters',
@@ -493,7 +489,9 @@ describe('Security regression suite', () => {
       const errorSpy = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(collect);
-      const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation(collect);
+      const logSpy = jest
+        .spyOn(Logger.prototype, 'log')
+        .mockImplementation(collect);
 
       const password = 'NeverLogThisPassword!';
       const login = await request(app.getHttpServer())

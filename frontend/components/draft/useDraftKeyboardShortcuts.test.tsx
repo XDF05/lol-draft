@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, fireEvent, act } from '@testing-library/react';
 import { useDraftKeyboardShortcuts } from './useDraftKeyboardShortcuts';
 
 function Harness({

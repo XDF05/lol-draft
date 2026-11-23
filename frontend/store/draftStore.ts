@@ -100,7 +100,9 @@ interface DraftStoreState {
   // --- Emit wrappers (server-authoritative actions) ------------------------------
   joinDraft: (code: string) => Promise<AckOutcome<DraftJoinAck>>;
   leaveDraft: () => Promise<AckOutcome<SimpleAck>>;
-  selectBan: (championId: string | null) => Promise<AckOutcome<ChampionSelectAck>>;
+  selectBan: (
+    championId: string | null,
+  ) => Promise<AckOutcome<ChampionSelectAck>>;
   lockBan: () => Promise<AckOutcome<ChampionLockAck>>;
   skipBan: () => Promise<AckOutcome<SimpleAck>>;
   selectPick: (
@@ -306,15 +308,17 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
   optimisticLockBan: async () => {
     const { myTeam, pending, bans, phase } = get();
     if (!myTeam) {
-      return { ok: false, error: 'Not on a team' } as AckOutcome<
-        ChampionLockAck
-      >;
+      return {
+        ok: false,
+        error: 'Not on a team',
+      } as AckOutcome<ChampionLockAck>;
     }
     const myPending = pending[myTeam];
     if (!myPending || myPending.type !== 'BAN' || !myPending.championId) {
-      return { ok: false, error: 'No pending ban' } as AckOutcome<
-        ChampionLockAck
-      >;
+      return {
+        ok: false,
+        error: 'No pending ban',
+      } as AckOutcome<ChampionLockAck>;
     }
     const snapshot = { bans: [...bans], pending: { ...pending } };
     const nextPending = { ...snapshot.pending };
@@ -372,15 +376,17 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
   optimisticLockPick: async () => {
     const { myTeam, pending, picks } = get();
     if (!myTeam) {
-      return { ok: false, error: 'Not on a team' } as AckOutcome<
-        ChampionLockAck
-      >;
+      return {
+        ok: false,
+        error: 'Not on a team',
+      } as AckOutcome<ChampionLockAck>;
     }
     const myPending = pending[myTeam];
     if (!myPending || myPending.type !== 'PICK' || !myPending.championId) {
-      return { ok: false, error: 'No pending pick' } as AckOutcome<
-        ChampionLockAck
-      >;
+      return {
+        ok: false,
+        error: 'No pending pick',
+      } as AckOutcome<ChampionLockAck>;
     }
     const snapshot = { picks: [...picks], pending: { ...pending } };
     const nextPending = { ...snapshot.pending };

@@ -8,7 +8,10 @@ function ToastHarness() {
       <button type="button" onClick={() => toast({ title: 'Save failed' })}>
         add toast
       </button>
-      <button type="button" onClick={() => toast({ title: 'Persist', duration: 0 })}>
+      <button
+        type="button"
+        onClick={() => toast({ title: 'Persist', duration: 0 })}
+      >
         add persistent toast
       </button>
     </div>
@@ -57,7 +60,9 @@ describe('Toast (error feedback)', () => {
 
   it('does not auto-dismiss a toast with duration 0', () => {
     renderToast();
-    fireEvent.click(screen.getByRole('button', { name: /add persistent toast/i }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /add persistent toast/i }),
+    );
     expect(screen.getByText('Persist')).toBeInTheDocument();
 
     act(() => {

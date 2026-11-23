@@ -27,10 +27,7 @@ export class LoginRateLimitGuard implements CanActivate {
       WINDOW_SECONDS,
     );
     if (count > MAX_ATTEMPTS) {
-      throw new HttpException(
-        'Too many login attempts. Try again later.',
-        429,
-      );
+      throw new HttpException('Too many login attempts. Try again later.', 429);
     }
     return true;
   }

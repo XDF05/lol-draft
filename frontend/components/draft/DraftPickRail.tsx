@@ -41,10 +41,13 @@ export default function DraftPickRail({
           <div
             key={pick ? pick.id : `${team}-empty-${index}`}
             className={`draft-pick-slot${champion ? '' : ' empty'}`}
-            title={champion ? champion.name : `Empty ${team.toLowerCase()} pick slot`}
+            title={
+              champion ? champion.name : `Empty ${team.toLowerCase()} pick slot`
+            }
           >
             <span className="draft-pick-label">
-              {prefix}{index + 1}
+              {prefix}
+              {index + 1}
             </span>
             {champion ? (
               <span className="draft-pick-portrait">

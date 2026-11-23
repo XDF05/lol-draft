@@ -172,11 +172,9 @@ export class AuthService {
     userId: number,
     username: string,
   ): Promise<LoginResult> {
-    const accessToken = jwt.sign(
-      { sub: userId, username },
-      this.jwtSecret,
-      { expiresIn: ACCESS_TOKEN_TTL_SECONDS },
-    );
+    const accessToken = jwt.sign({ sub: userId, username }, this.jwtSecret, {
+      expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+    });
 
     // Opaque refresh token stored in Redis with TTL (single-use).
     const refreshToken = crypto.randomBytes(48).toString('hex');

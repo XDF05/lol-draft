@@ -19,7 +19,10 @@ function schemaFromUrl(url: string | undefined): string | undefined {
 }
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor() {
     const connectionString = process.env.DATABASE_URL;
     const schema = schemaFromUrl(connectionString);

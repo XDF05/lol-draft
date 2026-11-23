@@ -22,9 +22,7 @@ import { redactRequestPath } from '../security/redact';
  * went wrong.
  */
 @Catch(HttpException)
-export class DraftHttpExceptionFilter
-  implements ExceptionFilter<HttpException>
-{
+export class DraftHttpExceptionFilter implements ExceptionFilter<HttpException> {
   private readonly logger = new Logger(DraftHttpExceptionFilter.name);
 
   catch(exception: HttpException, host: ArgumentsHost): void {
@@ -39,10 +37,7 @@ export class DraftHttpExceptionFilter
     let code: string;
     let message: string;
 
-    if (
-      typeof exceptionResponse === 'object' &&
-      exceptionResponse !== null
-    ) {
+    if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
       const body = exceptionResponse as {
         code?: string;
         message?: string | string[];

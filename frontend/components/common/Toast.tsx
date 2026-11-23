@@ -54,10 +54,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const value = useMemo(
-    () => ({ toast, dismiss }),
-    [toast, dismiss],
-  );
+  const value = useMemo(() => ({ toast, dismiss }), [toast, dismiss]);
 
   return (
     <ToastContext.Provider value={value}>
@@ -75,7 +72,6 @@ export function useToast() {
   return ctx;
 }
 
-
 function ToastContainer({
   toasts,
   onDismiss,
@@ -88,7 +84,17 @@ function ToastContainer({
       {toasts.map((t) => (
         <div key={t.id} className="toast">
           <p className="toast-title">{t.title}</p>
-          {t.description && <p className="toast-description">{t.description}</p>}
+          {t.description && (
+            <p className="toast-description">{t.description}</p>
+          )}
+          <button
+            type="button"
+            className="toast-dismiss"
+            aria-label={`Dismiss ${t.title}`}
+            onClick={() => onDismiss(t.id)}
+          >
+            ×
+          </button>
         </div>
       ))}
     </div>

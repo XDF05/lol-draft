@@ -77,7 +77,11 @@ function CopyCodeButton({ code }: { code: string }) {
     }
   }
 
-  return <button type="button" onClick={copy}>{copied ? 'Copied!' : 'Copy code'}</button>;
+  return (
+    <button type="button" onClick={copy}>
+      {copied ? 'Copied!' : 'Copy code'}
+    </button>
+  );
 }
 
 /** Shareable read-only link for the public spectator view (T-015). */
@@ -125,7 +129,9 @@ function DraftResults({
   completedAt: string | null;
 }) {
   const { champions } = useChampionData();
-  const names = new Map(champions.map((champion) => [champion.id, champion.name]));
+  const names = new Map(
+    champions.map((champion) => [champion.id, champion.name]),
+  );
   const columns: Array<{ team: Team; label: string; color: string }> = [
     { team: 'BLUE', label: 'Blue', color: '#1d4ed8' },
     { team: 'RED', label: 'Red', color: '#b91c1c' },
@@ -202,7 +208,8 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   // Participant arrival tracking: poll while the draft is still waiting, as
   // a fallback for the draft.update broadcast.
-  const status = draftId === view?.id && draftStatus ? draftStatus : view?.status;
+  const status =
+    draftId === view?.id && draftStatus ? draftStatus : view?.status;
   useEffect(() => {
     if (!view || status !== 'WAITING_FOR_PLAYERS') {
       return;
@@ -215,8 +222,8 @@ export default function DraftRoomPage({ code }: { code: string }) {
 
   const isParticipant = Boolean(
     view &&
-      user &&
-      (view.bluePlayer?.id === user.id || view.redPlayer?.id === user.id),
+    user &&
+    (view.bluePlayer?.id === user.id || view.redPlayer?.id === user.id),
   );
 
   // Socket join for participants (creator right after redirect, opponent
@@ -340,9 +347,7 @@ export default function DraftRoomPage({ code }: { code: string }) {
                 </button>
               </>
             ) : (
-              <p className="error-text">
-                This draft already has two players.
-              </p>
+              <p className="error-text">This draft already has two players.</p>
             )}
           </div>
         </main>
@@ -455,8 +460,8 @@ export default function DraftRoomPage({ code }: { code: string }) {
               <>
                 <p style={{ margin: 0, fontWeight: 700 }}>
                   Turn {currentTurnInfo.turnNumber} —{' '}
-                  {PHASE_LABELS[currentTurnInfo.phase] ?? currentTurnInfo.phase} (
-                  {currentTurnInfo.actionType.toLowerCase()})
+                  {PHASE_LABELS[currentTurnInfo.phase] ?? currentTurnInfo.phase}{' '}
+                  ({currentTurnInfo.actionType.toLowerCase()})
                 </p>
                 <p className="muted">
                   {currentTurnInfo.expectedTeam

@@ -4,11 +4,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Compiled into the browser bundle; must be reachable from the host.
+        NEXT_PUBLIC_API_URL: http://localhost:4000
     ports:
       - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://api:4000
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
@@ -22,6 +25,22 @@ services:
       start_period: 20s
     networks:
       - app-network
+
+  # One-shot Prisma migration runner. The API waits for it to exit
+  # successfully so a fresh volume always has the expected tables.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: migrator
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/league_draft?schema=draft_db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
 
   # API Backend
   api:
@@ -38,7 +57,13 @@ services:
       - PORT=4000
       - JWT_SECRET=${JWT_SECRET}
       - DATA_DRAGON_BASE_URL=${DATA_DRAGON_BASE_URL:-}
+      # Test/dev overrides; empty values keep the spec timers (30s/60s).
+      - DRAFT_GRACE_PERIOD_MS=${DRAFT_GRACE_PERIOD_MS:-}
+      - DRAFT_TURN_TIMER_MS=${DRAFT_TURN_TIMER_MS:-}
+      - DRAFT_FINALIZATION_TIMER_MS=${DRAFT_FINALIZATION_TIMER_MS:-}
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       redis:

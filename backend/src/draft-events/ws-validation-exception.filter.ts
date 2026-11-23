@@ -32,9 +32,7 @@ export class WsValidationExceptionFilter extends BaseWsExceptionFilter {
 
   private validationMessage(exception: BadRequestException): string {
     const response = exception.getResponse() as
-      | string
-      | { message?: string | string[] }
-      | undefined;
+      string | { message?: string | string[] } | undefined;
 
     if (typeof response === 'string') {
       return response;
