@@ -17,6 +17,8 @@ The Compose file publishes these ports on the loopback interface only:
 
 Containers communicate over the private `app-network`. CORS is an additional browser boundary, not a network firewall: non-browser clients can call the API directly. Do not expose these ports on `0.0.0.0`, a public interface, or an untrusted LAN without first applying TLS, authentication, network policy, and a revised threat model.
 
+Both application images run as the non-root `node` user (UID 1000). Backend runtime files are not writable by that user. The frontend permits writes only to its dedicated `/app/.next/cache` directory; `scripts/smoke-test.sh` verifies these restrictions.
+
 ## Browser and API boundary
 
 The HTTP API and Socket.IO gateway use the same exact browser-origin allowlist from `backend/src/common/config/cors.ts`:

@@ -94,10 +94,10 @@ The checklist below reconciles the original implementation breakdown with the be
 - [x] 10.1 Use multi-stage backend and frontend container builds, and verify each image contains only the runtime files required by its command
 - [x] 10.2 Use Alpine-based Node runtime images, and verify the backend and frontend image bases are lightweight Node variants
 - [x] 10.3 Add backend and frontend `.dockerignore` files, and verify local dependencies, build output, and secrets are excluded from build context
-- [ ] 10.4 Optimize dependency installation and build-layer caching, and verify a repeated image build reuses unchanged dependency layers
-- [ ] 10.5 Run both application containers as a non-root user, and verify the runtime user cannot write outside its permitted paths
-- [ ] 10.6 Add Compose health checks for the web and API services and make dependencies honor them, and verify `docker compose ps` reports healthy services
-- [ ] 10.7 Add an image smoke test that starts the stack and verifies the API health and champion endpoints, and verify the smoke test passes from a clean build
+- [x] 10.4 Optimize dependency installation and build-layer caching, and verify a repeated image build reuses unchanged dependency layers
+- [x] 10.5 Run both application containers as a non-root user, and verify the runtime user cannot write outside its permitted paths
+- [x] 10.6 Add Compose health checks for the web and API services and make dependencies honor them, and verify `docker compose ps` reports healthy services
+- [x] 10.7 Add an image smoke test that starts the stack and verifies the API health and champion endpoints, and verify the smoke test passes from a clean build
 
 ## 11. Continuous integration
 

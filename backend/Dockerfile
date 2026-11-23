@@ -1,12 +1,15 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # --- Dependencies ---
 FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm install --no-audit --no-fund
+COPY package.json package-lock.json ./
+# The lockfile-only layer is reused until dependencies change, so source-only
+# edits do not reinstall node_modules.
+RUN npm ci --no-audit --no-fund
 
 # --- Build (compile TypeScript, then prune dev dependencies) ---
 FROM base AS builder
@@ -25,4 +28,6 @@ COPY package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 EXPOSE 4000
+# Runtime files stay root-owned and read-only to the application user.
+USER node
 CMD ["node", "dist/main.js"]

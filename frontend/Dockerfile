@@ -1,13 +1,16 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # --- Dependencies ---
 FROM base AS deps
-COPY package.json package-lock.json* ./
-RUN npm install --no-audit --no-fund
+COPY package.json package-lock.json ./
+# Keep dependency installation in a lockfile-only layer so application source
+# changes do not invalidate it.
+RUN npm ci --no-audit --no-fund
 
 # --- Build ---
 FROM base AS builder
@@ -18,9 +21,17 @@ RUN npm run build
 # --- Runtime (standalone output) ---
 FROM base AS runner
 ENV NODE_ENV=production
+# Next standalone otherwise binds to the container hostname instead of all
+# interfaces, making the in-container health check fail.
+ENV HOSTNAME=0.0.0.0
 WORKDIR /app
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Next.js may write image-optimization cache entries. That directory is the
+# only application-owned writable path; all other runtime files stay
+# root-owned and read-only to the application user.
+RUN mkdir -p /app/.next/cache && chown -R node:node /app/.next/cache
 EXPOSE 3000
+USER node
 CMD ["node", "server.js"]
