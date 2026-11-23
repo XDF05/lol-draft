@@ -101,22 +101,22 @@ The checklist below reconciles the original implementation breakdown with the be
 
 ## 11. Continuous integration
 
-- [ ] 11.1 Add a GitHub Actions workflow triggered by pushes and pull requests, and verify the workflow file is discovered by GitHub Actions
-- [ ] 11.2 Configure formatting and lint checks for backend and frontend, and verify the workflow fails on a deliberate lint error
-- [ ] 11.3 Run backend and frontend unit tests on every push and pull request, and verify the CI log reports the test results
-- [ ] 11.4 Run the end-to-end draft suite against the Compose services for pull requests, and verify a full draft completes in CI
-- [ ] 11.5 Build and deploy the local Compose images on the main branch, and verify the deployment job publishes the expected service images
-- [ ] 11.6 Document CI prerequisites, secrets, and local reproduction commands, and verify a maintainer can run the same checks locally
+- [x] 11.1 Add a GitHub Actions workflow triggered by pushes and pull requests, and verify the workflow file is discovered by GitHub Actions
+- [x] 11.2 Configure formatting and lint checks for backend and frontend, and verify the workflow fails on a deliberate lint error
+- [x] 11.3 Run backend and frontend unit tests on every push and pull request, and verify the CI log reports the test results
+- [x] 11.4 Run the end-to-end draft suite against the Compose services for pull requests, and verify a full draft completes in CI
+- [x] 11.5 Build and deploy the local Compose images on the main branch, and verify the deployment job publishes the expected service images
+- [x] 11.6 Document CI prerequisites, secrets, and local reproduction commands, and verify a maintainer can run the same checks locally
 
 ## 12. Project documentation
 
 - [x] 12.1 Create the initial README with the project overview, repository layout, services, and quickstart, and verify the documented service names and ports match Compose
-- [ ] 12.2 Reconcile the README with the implemented single-draft scope and Data Dragon integration, and verify it no longer claims Bo3/Bo5 or a Riot developer API key
-- [ ] 12.3 Document prerequisites, environment configuration, database initialization, and local startup, and verify the commands work from a clean checkout
-- [ ] 12.4 Write the participant guide for room creation, side selection, bans, picks, timers, finalization, and public viewing, and verify each step matches the interface
-- [ ] 12.5 Add troubleshooting for invalid codes, expired drafts, unavailable champion data, authentication failures, and connection loss, and verify each remedy resolves the documented failure
-- [ ] 12.6 Document the HTTP and Socket.IO API contracts, including authentication, event payloads, and error shapes, and verify examples match the implemented routes and types
-- [ ] 12.7 Add a documentation link and command check, and verify all local links and documented commands resolve successfully
+- [x] 12.2 Reconcile the README with the implemented single-draft scope and Data Dragon integration, and verify it no longer claims Bo3/Bo5 or a Riot developer API key
+- [x] 12.3 Document prerequisites, environment configuration, database initialization, and local startup, and verify the commands work from a clean checkout
+- [x] 12.4 Write the participant guide for room creation, side selection, bans, picks, timers, finalization, and public viewing, and verify each step matches the interface
+- [x] 12.5 Add troubleshooting for invalid codes, expired drafts, unavailable champion data, authentication failures, and connection loss, and verify each remedy resolves the documented failure
+- [x] 12.6 Document the HTTP and Socket.IO API contracts, including authentication, event payloads, and error shapes, and verify examples match the implemented routes and types
+- [x] 12.7 Add a documentation link and command check, and verify all local links and documented commands resolve successfully
 
 ## Workflow follow-up
 

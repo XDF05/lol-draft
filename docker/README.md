@@ -8,6 +8,7 @@ This directory documents the containerized development environment for the LoL 1
 |---------|---------------|---------------|---------|
 | `web`   | `./frontend` (Next.js 16) | `127.0.0.1:3000` | Frontend UI |
 | `api`   | `./backend` (NestJS 11)  | `127.0.0.1:4000` | REST API + Socket.IO |
+| `migrate` | `./backend` (`migrator` stage) | — | One-shot `prisma migrate deploy`; exits before `api` starts |
 | `db`    | `postgres:15-alpine`     | `127.0.0.1:5432` | Primary database (`league_draft`, schema `draft_db`) |
 | `redis` | `redis:7-alpine`         | `127.0.0.1:6379` | Cache / pub-sub (AOF persistence enabled) |
 
@@ -31,7 +32,12 @@ Compose health checks use each image's Node runtime and require no extra package
 - `redis`: `redis-cli ping`
 - `db`: the existing `pg_isready` check
 
-`web` starts only after `api` is healthy. `api` starts only after PostgreSQL and Redis are healthy.
+`web` starts only after `api` is healthy. `api` starts only after the one-shot
+`migrate` service exits successfully and PostgreSQL and Redis are healthy.
+
+`NEXT_PUBLIC_API_URL` is a build argument for the web image (default
+`http://localhost:4000`) because Next.js inlines it into the browser bundle.
+Changing the API origin requires rebuilding the `web` image.
 
 ## Running
 
