@@ -7,8 +7,8 @@ import type { Champion, ChampionsResponse } from '../lib/types';
  * Global champion pool state (Zustand).
  *
  * The pool is fetched once per app session via GET /champions; the backend
- * serves it from its 24h Redis cache, so this stays cheap. Concurrent callers
- * share one in-flight request (single-flight).
+ * serves it from its patch-aware Redis cache, so this stays cheap. Concurrent
+ * callers share one in-flight request (single-flight).
  */
 
 export type ChampionPoolStatus = 'idle' | 'loading' | 'ready' | 'error';
