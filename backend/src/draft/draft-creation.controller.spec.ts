@@ -8,7 +8,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 import { DraftHttpExceptionFilter } from '../common/filters/draft-http-exception.filter';
-import { WAITING_DRAFT_TTL_MS } from './draft.constants';
+import {
+  EXPIRED_DRAFT_RETENTION_MS,
+  WAITING_DRAFT_TTL_MS,
+} from './draft.constants';
 
 let userCounter = 0;
 function uniqueUsername(prefix = 'user') {
@@ -344,6 +347,93 @@ describe('Draft room lifecycle (integration)', () => {
       await request(app.getHttpServer())
         .get('/public/draft/STALECD1')
         .expect(404);
+    });
+  });
+
+  describe('expired draft retention', () => {
+    it('deletes an expired draft past retention with its history and live session', async () => {
+      const owner = await prisma.user.create({
+        data: {
+          username: uniqueUsername('expired'),
+          email: `${uniqueUsername()}@example.com`,
+          passwordHash: 'hash',
+        },
+      });
+      const opponent = await prisma.user.create({
+        data: {
+          username: uniqueUsername('expiredop'),
+          email: `${uniqueUsername()}@example.com`,
+          passwordHash: 'hash',
+        },
+      });
+      const expired = await prisma.draft.create({
+        data: {
+          code: 'EXPIRED1',
+          status: 'EXPIRED',
+          blueTeamPlayerId: owner.id,
+          redTeamPlayerId: opponent.id,
+          currentTurn: 5,
+          completedAt: new Date(Date.now() - EXPIRED_DRAFT_RETENTION_MS - 1000),
+        },
+      });
+      await prisma.ban.create({
+        data: {
+          draftId: expired.id,
+          championId: 'Ahri',
+          phase: 1,
+          playerId: owner.id,
+          team: 'BLUE',
+          locked: true,
+        },
+      });
+      await prisma.pick.create({
+        data: {
+          draftId: expired.id,
+          championId: 'Akali',
+          playerId: owner.id,
+          team: 'BLUE',
+          locked: true,
+        },
+      });
+      await redis.client.set(
+        `draft:${expired.id}:session`,
+        JSON.stringify({ draftId: expired.id, status: 'EXPIRED' }),
+      );
+
+      // A recently expired draft is still inside the retention window.
+      const recent = await prisma.draft.create({
+        data: {
+          code: 'EXPIRED2',
+          status: 'EXPIRED',
+          blueTeamPlayerId: owner.id,
+          redTeamPlayerId: opponent.id,
+          currentTurn: 3,
+          completedAt: new Date(),
+        },
+      });
+
+      await cleanup.sweep();
+
+      // Past retention: the draft, its cascaded history, and the live session
+      // are all gone, and the stale code resolves as not found.
+      expect(
+        await prisma.draft.findUnique({ where: { id: expired.id } }),
+      ).toBeNull();
+      expect(
+        await prisma.ban.findMany({ where: { draftId: expired.id } }),
+      ).toHaveLength(0);
+      expect(
+        await prisma.pick.findMany({ where: { draftId: expired.id } }),
+      ).toHaveLength(0);
+      expect(await redis.client.get(`draft:${expired.id}:session`)).toBeNull();
+      await request(app.getHttpServer())
+        .get('/public/draft/EXPIRED1')
+        .expect(404);
+
+      // Within retention: the draft is kept for the expiry notice.
+      expect(
+        await prisma.draft.findUnique({ where: { id: recent.id } }),
+      ).not.toBeNull();
     });
   });
 });

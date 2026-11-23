@@ -180,6 +180,43 @@ describe('TurnManagerService (unit)', () => {
     });
   });
 
+  describe('timer warnings — 5s / 3s / 1s thresholds', () => {
+    it('emits timer.warning at 5, 3, and 1 remaining seconds', async () => {
+      const session = sessionState(1, 1, {}, 'IN_PROGRESS');
+      mockSessions.syncWithRecord.mockResolvedValue(session);
+      mockSessions.getOrCreate.mockResolvedValue(session);
+
+      const emitSpy = jest.spyOn(service as any, 'emitTo');
+      await service.startTurnTimer(1);
+      emitSpy.mockClear(); // drop the turn.start/phase/snapshot announcements
+
+      // A 30s countdown warns 25s, 27s, and 29s after arming.
+      jest.advanceTimersByTime(25_000);
+      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.warning', {
+        seconds: 5,
+        turn: expect.objectContaining({ turnNumber: 1, timerSeconds: 30 }),
+      });
+
+      jest.advanceTimersByTime(2_000);
+      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.warning', {
+        seconds: 3,
+        turn: expect.objectContaining({ turnNumber: 1, timerSeconds: 30 }),
+      });
+
+      jest.advanceTimersByTime(2_000);
+      expect(emitSpy).toHaveBeenCalledWith(1, 'timer.warning', {
+        seconds: 1,
+        turn: expect.objectContaining({ turnNumber: 1, timerSeconds: 30 }),
+      });
+
+      // Exactly three warnings before the deadline; expiry is a separate event.
+      const warnings = emitSpy.mock.calls.filter(
+        ([, event]) => event === 'timer.warning',
+      );
+      expect(warnings).toHaveLength(3);
+    });
+  });
+
   describe('timer races — a lock racing the deadline cannot double-advance', () => {
     it('expiry is rejected when a manual action already owns the turn', async () => {
       const session = sessionState(1, 1, {
