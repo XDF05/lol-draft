@@ -5,6 +5,11 @@ create a room, claim Blue or Red, and work through the full 21-turn draft
 schedule. Bans and picks are server-authoritative, synchronized over
 Socket.IO, and available to spectators through a read-only public link.
 
+![Side-by-side demo: Blue on the left and Red on the right during a live draft](demo.gif)
+
+*Both players side by side — Blue on the left, Red on the right — searching,
+staging and locking bans and picks.*
+
 ## Features
 
 - **Real-time 1v1 drafting** — WebSocket-synchronized ban/pick phases with a
