@@ -57,6 +57,16 @@ export interface PendingSelection {
   championId: string | null;
 }
 
+/**
+ * Private staged-selection state, delivered only to the participant socket
+ * that owns the selection. Room-wide `draft.update` snapshots are sanitized.
+ */
+export interface DraftPendingPayload {
+  draftId: number;
+  team: Team;
+  pending: PendingSelection | null;
+}
+
 export interface BanConfirmedPayload {
   championId: string;
   team: Team;
@@ -131,6 +141,7 @@ export interface ExceptionPayload {
 
 export interface ServerToClientEvents {
   'draft.update': (state: DraftSessionSnapshot) => void;
+  'draft.pending': (payload: DraftPendingPayload) => void;
   'turn.start': (turn: TurnStartPayload) => void;
   'turn.end': (nextTurnNumber: number) => void;
   'ban.confirmed': (payload: BanConfirmedPayload) => void;

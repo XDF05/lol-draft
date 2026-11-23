@@ -41,9 +41,18 @@ function renderPool(
 }
 
 describe('ChampionPool (champion states)', () => {
-  it('shows a loading message while the pool is not ready', () => {
+  it('shows a loading message and skeleton cards while the pool loads', () => {
     renderPool({ status: 'loading' });
     expect(screen.getByText(/Loading champion pool/i)).toBeInTheDocument();
+
+    const skeletons = screen.getAllByRole('button', {
+      name: 'Loading champion',
+    });
+    expect(skeletons).toHaveLength(12);
+    for (const skeleton of skeletons) {
+      expect(skeleton).toBeDisabled();
+      expect(skeleton).toHaveAttribute('aria-busy', 'true');
+    }
   });
 
   it('shows the error message when the pool fails to load', () => {

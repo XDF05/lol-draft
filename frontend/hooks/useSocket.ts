@@ -46,6 +46,7 @@ export function attachDraftEventListeners(socket: DraftSocket): () => void {
 
   const handlers: ServerHandler[] = [
     ['draft.update', (state) => store().applyDraftUpdate(state as never)],
+    ['draft.pending', (payload) => store().applyDraftPending(payload as never)],
     ['turn.start', (turn) => store().applyTurnStart(turn as never)],
     ['turn.end', (next) => store().applyTurnEnd(next as never)],
     ['ban.confirmed', (p) => store().applyBanConfirmed(p as never)],

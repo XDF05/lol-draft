@@ -276,9 +276,11 @@ timeout and listen for `exception`.
 | `health.ping` | client → server | `{ sentAt?: number }` → `{ ok: true, serverTime, latencyMs }` |
 
 `ban.select` / `pick.select` stage a private selection; `null` clears it.
-`lock` confirms the staged champion. `skip` resolves the turn without a
-selection. `pick.swap` is valid only during Finalization and only for two
-locked picks on the caller's own side.
+The staged value is returned only on the targeted `draft.pending` event and
+is never included in a room-wide `draft.update`. `lock` confirms the staged
+champion. `skip` resolves the turn without a selection. `pick.swap` is valid
+only during Finalization and only for two locked picks on the caller's own
+side.
 
 ### Public spectator room
 
@@ -296,7 +298,8 @@ The joining spectator immediately receives the current `turn.start` and
 |---|---|
 | `turn.start` | `{ turnNumber, phase, actionType, expectedTeam, timerSeconds, remainingSeconds? }` |
 | `turn.end` | next turn number |
-| `draft.update` | `{ draftId, code, status, currentTurn, bans, picks, pending, skips, updatedAt }` |
+| `draft.update` | `{ draftId, code, status, currentTurn, bans, picks, pending, skips, updatedAt }`; `pending` is always `{}` in room-wide broadcasts |
+| `draft.pending` | targeted to the owning participant: `{ draftId, team, pending }`; `pending` is the staged selection or `null` |
 | `ban.confirmed` | `{ championId, team, phase, bans }` |
 | `pick.confirmed` | `{ championId, team, picks }` |
 | `pick.reordered` | `{ picks }` |
@@ -306,9 +309,11 @@ The joining spectator immediately receives the current `turn.start` and
 | `draft.completed` | `{ draftId, code, completedAt, picks, bans }` |
 | `draft.expired` | `{ reason }` |
 
-Public `draft.update` broadcasts are sanitized: the `pending` map is replaced
-with `{}` before the event reaches the `draft:<id>:public` room. The
-`ban.select` / `pick.select` events are never broadcast at all.
+Both participant and public `draft.update` broadcasts are sanitized: the
+`pending` map is replaced with `{}` before the event reaches either room.
+Staged state is delivered only through the targeted `draft.pending` event to
+the participant socket that owns it, including when that participant
+reconnects.
 
 ## Draft schedule
 

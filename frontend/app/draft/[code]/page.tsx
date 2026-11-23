@@ -1,3 +1,4 @@
+import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import DraftRoomPage from '../../../components/draft/DraftRoomPage';
 
 export default async function DraftRoomRoute({
@@ -6,5 +7,9 @@ export default async function DraftRoomRoute({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  return <DraftRoomPage code={code.toUpperCase()} />;
+  return (
+    <ProtectedRoute>
+      <DraftRoomPage code={code.toUpperCase()} />
+    </ProtectedRoute>
+  );
 }

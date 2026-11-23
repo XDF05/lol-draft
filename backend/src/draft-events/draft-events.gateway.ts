@@ -22,11 +22,14 @@ import {
   BanConfirmedEntry,
   DraftCompletedPayload,
   DraftExpiredPayload,
+  DraftPendingPayload,
   HealthPingPayload,
+  PendingSelection,
   PickConfirmedEntry,
   PickConfirmedPayload,
   PickReorderedPayload,
   BanConfirmedPayload,
+  participantBroadcastPayload,
   publicBroadcastPayload,
   publicDraftRoom,
   PublicJoinAck,
@@ -245,6 +248,15 @@ export class DraftEventsGateway
     } as TurnStartPayload;
     this.broadcast(draft.id, 'turn.start', turnPayload);
     this.broadcast(draft.id, 'draft.update', session);
+    // The room-wide snapshot is sanitized. Restore only this participant's
+    // staged selection over the targeted private channel (also used after a
+    // reconnect).
+    this.emitPrivatePending(
+      client,
+      draft.id,
+      team,
+      session.pending[team] ?? null,
+    );
 
     this.logger.log(
       `draft.join user=${user.id} draft=${draft.id} team=${team}`,
@@ -295,6 +307,7 @@ export class DraftEventsGateway
           user,
         );
         await this.sessions.clearPending(draftId, team);
+        this.emitPrivatePending(client, draftId, team, null);
       }
       await client.leave(draftRoom(draftId));
       this.health.detachFromDraft(client.id, draftId);
@@ -403,7 +416,13 @@ export class DraftEventsGateway
       this.validateBanChampion(session, championId);
     }
 
-    await this.sessions.setPending(draftId, team, 'BAN', championId);
+    const state = await this.sessions.setPending(
+      draftId,
+      team,
+      'BAN',
+      championId,
+    );
+    this.emitPrivatePending(client, draftId, team, state.pending[team] ?? null);
     return { ok: true, championId };
   }
 
@@ -494,7 +513,13 @@ export class DraftEventsGateway
       this.validatePickChampion(session, championId);
     }
 
-    await this.sessions.setPending(draftId, team, 'PICK', championId);
+    const state = await this.sessions.setPending(
+      draftId,
+      team,
+      'PICK',
+      championId,
+    );
+    this.emitPrivatePending(client, draftId, team, state.pending[team] ?? null);
     return { ok: true, championId };
   }
 
@@ -721,6 +746,7 @@ export class DraftEventsGateway
 
     try {
       const state = await this.sessions.recordSkip(draftId, team);
+      this.emitPrivatePending(client, draftId, team, null);
       this.broadcast(draftId, 'draft.update', state);
       this.logger.log(
         `${action.toLowerCase()}.skip draft=${draftId} team=${team} turn=${turn.turnNumber}`,
@@ -750,14 +776,30 @@ export class DraftEventsGateway
 
   /**
    * Emit a live event to both the participant room and the read-only public
-   * room. Public viewers receive a sanitized snapshot for `draft.update` so
-   * staged (pending) selections never leave the participants' room.
+   * room. `draft.update` snapshots are sanitized for both rooms so staged
+   * selections are only delivered through the targeted `draft.pending` event.
    */
   private broadcast(draftId: number, event: string, payload: unknown): void {
-    this.server.to(draftRoom(draftId)).emit(event as never, payload as never);
+    this.server
+      .to(draftRoom(draftId))
+      .emit(
+        event as never,
+        participantBroadcastPayload(event, payload) as never,
+      );
     this.server
       .to(publicDraftRoom(draftId))
       .emit(event as never, publicBroadcastPayload(event, payload) as never);
+  }
+
+  /** Deliver staged state only to the participant socket that owns it. */
+  private emitPrivatePending(
+    client: Socket,
+    draftId: number,
+    team: Team,
+    pending: PendingSelection | null,
+  ): void {
+    const payload: DraftPendingPayload = { draftId, team, pending };
+    client.emit('draft.pending', payload);
   }
 
   /** Final results payload for a COMPLETE draft (reconnecting spectators). */

@@ -57,6 +57,7 @@ export function ChampionCard({
         style={cardStyle}
         disabled
         aria-busy="true"
+        aria-label="Loading champion"
       >
         <span className="champion-portrait champion-skeleton" />
         <span className="champion-name champion-skeleton champion-skeleton-name" />

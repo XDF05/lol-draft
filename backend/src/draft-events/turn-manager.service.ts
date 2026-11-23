@@ -17,6 +17,7 @@ import {
   TimerExpiredPayload,
   TurnStartPayload,
   draftRoom,
+  participantBroadcastPayload,
   publicBroadcastPayload,
   publicDraftRoom,
 } from './socket-events';
@@ -570,7 +571,12 @@ export class TurnManagerService implements OnModuleDestroy {
       this.logger.warn(`emit skipped (server not attached): ${event}`);
       return;
     }
-    this.server.to(draftRoom(draftId)).emit(event as never, payload as never);
+    this.server
+      .to(draftRoom(draftId))
+      .emit(
+        event as never,
+        participantBroadcastPayload(event, payload) as never,
+      );
     // Public spectators get the same live events, with staged selections
     // stripped from draft.update snapshots (T-015).
     this.server

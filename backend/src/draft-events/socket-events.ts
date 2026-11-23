@@ -21,6 +21,18 @@ export interface SocketUser {
   username: string;
 }
 
+/**
+ * A staged (not yet locked) ban or pick.
+ *
+ * Pending selections are private to the team that staged them. They are
+ * delivered only through the targeted `draft.pending` event and must never
+ * be included in a room-wide `draft.update` snapshot.
+ */
+export interface PendingSelection {
+  type: 'BAN' | 'PICK';
+  championId: string | null;
+}
+
 // ---------------------------------------------------------------------------
 // Client → Server
 // ---------------------------------------------------------------------------
@@ -136,6 +148,16 @@ export interface DraftExpiredPayload {
   reason: string;
 }
 
+/**
+ * Private staged-selection state, sent only to the participant socket that
+ * owns the staged selection (including on reconnect).
+ */
+export interface DraftPendingPayload {
+  draftId: number;
+  team: Team;
+  pending: PendingSelection | null;
+}
+
 /** Acknowledgement returned by `public.join`. */
 export interface PublicJoinAck {
   ok: true;
@@ -145,11 +167,13 @@ export interface PublicJoinAck {
 }
 
 /**
- * Sanitize a broadcast payload for the public spectator room (T-015).
+ * Sanitize a broadcast payload for the participant room.
+ *
  * `draft.update` snapshots carry the participants' staged selections, which
- * must never reach spectators.
+ * must never be revealed to the opponent. Staged state is delivered through
+ * the targeted `draft.pending` event instead.
  */
-export function publicBroadcastPayload(
+export function participantBroadcastPayload(
   event: string,
   payload: unknown,
 ): unknown {
@@ -157,6 +181,17 @@ export function publicBroadcastPayload(
     return payload;
   }
   return { ...(payload as Record<string, unknown>), pending: {} };
+}
+
+/**
+ * Sanitize a broadcast payload for the public spectator room (T-015).
+ * Spectators must never receive participants' staged selections.
+ */
+export function publicBroadcastPayload(
+  event: string,
+  payload: unknown,
+): unknown {
+  return participantBroadcastPayload(event, payload);
 }
 
 /** Room name helpers. */

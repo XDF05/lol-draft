@@ -21,7 +21,6 @@ function renderCard(
   };
   render(<ChampionCard {...props} />);
   // Each render adds a button to the DOM; take the most recently rendered one.
-  // (Loading-state cards have no accessible name, so don't filter by name.)
   const buttons = screen.getAllByRole('button');
   return { props, button: buttons[buttons.length - 1] };
 }
@@ -63,6 +62,7 @@ describe('ChampionCard (champion states)', () => {
     const button = screen.getAllByRole('button')[0];
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('aria-busy', 'true');
+    expect(button).toHaveAccessibleName('Loading champion');
     // Loading state shows skeleton placeholders instead of the name.
     expect(screen.queryByText('Ahri')).not.toBeInTheDocument();
     expect(document.querySelector('.champion-skeleton')).toBeInTheDocument();

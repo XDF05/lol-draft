@@ -11,6 +11,7 @@ import {
   type DraftJoinAck,
   type DraftPhase,
   type DraftExpiredPayload,
+  type DraftPendingPayload,
   type DraftSessionSnapshot,
   type HealthPingAck,
   type PendingSelection,
@@ -85,6 +86,7 @@ interface DraftStoreState {
   applyTurnStart: (turn: TurnStartPayload) => void;
   applyTurnEnd: (nextTurnNumber: number) => void;
   applyDraftUpdate: (snapshot: DraftSessionSnapshot) => void;
+  applyDraftPending: (payload: DraftPendingPayload) => void;
   applyBanConfirmed: (payload: BanConfirmedPayload) => void;
   applyPickConfirmed: (payload: PickConfirmedPayload) => void;
   applyPickReordered: (payload: PickReorderedPayload) => void;
@@ -170,12 +172,28 @@ export const useDraftStore = create<DraftStoreState>()((set, get) => ({
       draftStatus: snapshot.status,
       bans: snapshot.bans,
       picks: snapshot.picks,
-      pending: snapshot.pending,
       skips: snapshot.skips,
+      // Room-wide snapshots are sanitized by the server. Keep the local
+      // staged selection until the targeted private event or a confirmed
+      // action updates it.
+      pending: state.pending,
       // `currentTurnInfo` comes from turn.start broadcasts; draft.update
       // snapshots never weaken it.
       lastError: state.lastError,
     })),
+
+  applyDraftPending: (payload) =>
+    set((state) => {
+      // The private event can arrive immediately before the draft.join
+      // acknowledgement, so a null draft id is still valid here. Ignore an
+      // event for a different, already-known draft.
+      if (state.draftId !== null && state.draftId !== payload.draftId) {
+        return {};
+      }
+      const pending = { ...state.pending };
+      pending[payload.team] = payload.pending;
+      return { pending };
+    }),
 
   applyBanConfirmed: (payload) =>
     set((state) => {

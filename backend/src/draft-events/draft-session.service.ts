@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
-import { BanConfirmedEntry, PickConfirmedEntry, Team } from './socket-events';
+import {
+  BanConfirmedEntry,
+  PendingSelection,
+  PickConfirmedEntry,
+  Team,
+} from './socket-events';
 import { banPhaseOf, turnInfo } from './turn-schedule';
 
 /**
@@ -17,11 +22,6 @@ import { banPhaseOf, turnInfo } from './turn-schedule';
  * (at most one acting team per turn) this is safe; the T-009 TurnManager
  * additionally serializes turn resolution via its per-turn action claim.
  */
-export interface PendingSelection {
-  type: 'BAN' | 'PICK';
-  championId: string | null;
-}
-
 export interface DraftSessionState {
   draftId: number;
   code: string;

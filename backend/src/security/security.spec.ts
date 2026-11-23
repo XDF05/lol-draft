@@ -476,6 +476,86 @@ describe('Security regression suite', () => {
     });
   });
 
+  describe('participant staged-selection privacy', () => {
+    it('keeps a staged selection out of opponent snapshots and restores it privately on reconnect', async () => {
+      const blue = await registerAndLogin(app);
+      const red = await registerAndLogin(app);
+      const create = await request(app.getHttpServer())
+        .post('/draft/create')
+        .set('Authorization', `Bearer ${blue.token}`)
+        .send({ side: 'BLUE' })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/draft/${create.body.code}/join`)
+        .set('Authorization', `Bearer ${red.token}`)
+        .send({ side: 'RED' })
+        .expect(201);
+      const draft = await prisma.draft.findUniqueOrThrow({
+        where: { code: create.body.code },
+      });
+
+      const blueSocket = await connectSocket(app, blue.token);
+      const redSocket = await connectSocket(app, red.token);
+      await emitForOutcome(blueSocket, 'draft.join', {
+        code: create.body.code,
+      });
+      await emitForOutcome(redSocket, 'draft.join', {
+        code: create.body.code,
+      });
+
+      // Blue stages Ahri. The staged value is returned only on the targeted
+      // private event, never as a room broadcast.
+      const bluePendingEvent = once(blueSocket, 'draft.pending');
+      const staged = await emitForOutcome(blueSocket, 'ban.select', {
+        championId: 'Ahri',
+      });
+      expect(staged.ack?.ok).toBe(true);
+      expect((await bluePendingEvent).pending).toEqual({
+        type: 'BAN',
+        championId: 'Ahri',
+      });
+
+      const redPrivateEvents: any[] = [];
+      redSocket.on('draft.pending', (payload: any) => {
+        redPrivateEvents.push(payload);
+      });
+
+      // Reconnect Blue. Both the participant room snapshot seen by Red and
+      // the sanitized snapshot seen by Blue must omit the staged champion.
+      blueSocket.disconnect();
+      const reconnectedBlue = await connectSocket(app, blue.token);
+      const redUpdateEvent = once(redSocket, 'draft.update');
+      const blueUpdateEvent = once(reconnectedBlue, 'draft.update');
+      const bluePrivateEvent = once(reconnectedBlue, 'draft.pending');
+
+      const rejoined = await emitForOutcome(reconnectedBlue, 'draft.join', {
+        code: create.body.code,
+      });
+      expect(rejoined.ack?.ok).toBe(true);
+
+      const [redUpdate, blueUpdate, bluePrivate] = await Promise.all([
+        redUpdateEvent,
+        blueUpdateEvent,
+        bluePrivateEvent,
+      ]);
+      expect(redUpdate.pending).toEqual({});
+      expect(blueUpdate.pending).toEqual({});
+      expect(bluePrivate.pending).toEqual({
+        type: 'BAN',
+        championId: 'Ahri',
+      });
+      expect(redPrivateEvents).toEqual([]);
+
+      const session = JSON.parse(
+        (await redis.client.get(`draft:${draft.id}:session`)) as string,
+      );
+      expect(session.pending.BLUE).toEqual({
+        type: 'BAN',
+        championId: 'Ahri',
+      });
+    });
+  });
+
   describe('9.5 secret and sensitive-detail redaction', () => {
     it('does not emit passwords, tokens, query strings, or draft codes in errors or logs', async () => {
       const { token, refreshToken } = await registerAndLogin(app);

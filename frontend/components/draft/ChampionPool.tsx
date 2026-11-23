@@ -14,6 +14,16 @@ function SearchIcon() {
   );
 }
 
+const SKELETON_CHAMPION_COUNT = 12;
+const SKELETON_CHAMPIONS: Champion[] = Array.from(
+  { length: SKELETON_CHAMPION_COUNT },
+  (_, index) => ({
+    id: `loading-champion-${index}`,
+    name: 'Loading champion',
+    iconUrl: '',
+  }),
+);
+
 interface ChampionPoolProps {
   champions: Champion[];
   status: ChampionPoolStatus;
@@ -66,7 +76,27 @@ export default function ChampionPool({
   if (status !== 'ready') {
     return (
       <div className="champion-pool">
-        <p className="champion-pool-message">Loading champion pool…</p>
+        <p className="champion-pool-message" role="status">
+          Loading champion pool…
+        </p>
+        <div
+          className="champion-pool-grid"
+          aria-label="Loading champions"
+          aria-busy="true"
+        >
+          {SKELETON_CHAMPIONS.map((champion) => (
+            <ChampionCard
+              key={champion.id}
+              champion={champion}
+              status="available"
+              selected={false}
+              disabled
+              accent={accent}
+              onToggle={() => undefined}
+              loading
+            />
+          ))}
+        </div>
       </div>
     );
   }
