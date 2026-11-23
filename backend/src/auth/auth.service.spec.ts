@@ -20,6 +20,7 @@ const mockPrisma = {
 
 const mockRedis = {
   get: jest.fn(),
+  getDel: jest.fn(),
   set: jest.fn(),
   del: jest.fn(),
 };
@@ -191,15 +192,15 @@ describe('AuthService (unit)', () => {
     const storedUserId = '1';
 
     it('rotates the refresh token and issues a new pair', async () => {
-      mockRedis.get.mockResolvedValue(storedUserId);
+      mockRedis.getDel.mockResolvedValue(storedUserId);
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, username: 'alice' });
 
       const result = await service.refresh(dto);
 
-      expect(mockRedis.get).toHaveBeenCalledWith(
+      expect(mockRedis.getDel).toHaveBeenCalledWith(
         `auth:refresh:${dto.refresh_token}`,
       );
-      expect(mockRedis.del).toHaveBeenCalledWith(
+      expect(mockRedis.del).not.toHaveBeenCalledWith(
         `auth:refresh:${dto.refresh_token}`,
       );
       expect(result.access_token).toBeDefined();
@@ -208,7 +209,7 @@ describe('AuthService (unit)', () => {
     });
 
     it('rejects an unknown or expired refresh token', async () => {
-      mockRedis.get.mockResolvedValue(null);
+      mockRedis.getDel.mockResolvedValue(null);
 
       await expect(service.refresh(dto)).rejects.toBeInstanceOf(
         UnauthorizedException,
@@ -217,16 +218,18 @@ describe('AuthService (unit)', () => {
       expect(mockRedis.del).not.toHaveBeenCalled();
     });
 
-    it('rejects a refresh token for a missing user without deleting the token', async () => {
-      mockRedis.get.mockResolvedValue('999');
+    it('rejects a refresh token for a missing user after consuming it', async () => {
+      mockRedis.getDel.mockResolvedValue('999');
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(service.refresh(dto)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
-      // The token references a deleted user; the service reports invalid and
-      // leaves the orphaned Redis key in place rather than deleting it.
-      expect(mockRedis.del).not.toHaveBeenCalled();
+      // GETDEL consumes even an orphaned token, preventing repeated lookup
+      // of a user that no longer exists.
+      expect(mockRedis.getDel).toHaveBeenCalledWith(
+        `auth:refresh:${dto.refresh_token}`,
+      );
     });
   });
 
@@ -239,7 +242,11 @@ describe('AuthService (unit)', () => {
 
       const payload = service.verifyAccessToken(token);
 
-      expect(payload).toEqual({ sub: 7, username: 'bob' });
+      expect(payload).toEqual({
+        sub: 7,
+        username: 'bob',
+        exp: expect.any(Number),
+      });
       override.restore();
     });
 

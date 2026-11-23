@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DraftHttpExceptionFilter } from './common/filters/draft-http-exception.filter';
+import { HTTP_CORS_OPTIONS } from './common/config/cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,10 +21,7 @@ async function bootstrap() {
   );
 
   // Local-only deployment: only the Next.js frontend origin may call the API.
-  app.enableCors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-    credentials: true,
-  });
+  app.enableCors(HTTP_CORS_OPTIONS);
 
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
   await app.listen(port, '0.0.0.0');

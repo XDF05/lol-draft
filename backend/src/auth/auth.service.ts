@@ -35,6 +35,7 @@ export interface LoginResult {
 export interface AccessTokenPayload {
   sub: number;
   username: string;
+  exp?: number;
 }
 
 @Injectable()
@@ -57,11 +58,10 @@ export class AuthService {
       this.prisma.user.findUnique({ where: { username: dto.username } }),
       this.prisma.user.findUnique({ where: { email: dto.email } }),
     ]);
-    if (byUsername) {
-      throw new ConflictException('Username is already taken');
-    }
-    if (byEmail) {
-      throw new ConflictException('Email is already registered');
+    if (byUsername || byEmail) {
+      // Use one message for both fields so registration cannot be used to
+      // discover which identity is already registered.
+      throw new ConflictException('Username or email is already registered');
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
@@ -98,7 +98,10 @@ export class AuthService {
    */
   async refresh(dto: RefreshTokenDto): Promise<LoginResult> {
     const key = this.refreshKey(dto.refresh_token);
-    const storedUserId = await this.redis.get(key);
+
+    // GETDEL makes single-use rotation atomic. A replay racing the original
+    // request observes the deleted key and is rejected.
+    const storedUserId = await this.redis.getDel(key);
     if (!storedUserId) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -110,9 +113,43 @@ export class AuthService {
       throw new UnauthorizedException('Unknown user for refresh token');
     }
 
-    // Rotate: invalidate the old token, then issue a new pair.
-    await this.redis.del(key);
     return this.issueTokens(user.id, user.username);
+  }
+
+  /**
+   * Revoke the browser session.
+   *
+   * The opaque refresh token is always deleted. When the current access token
+   * is supplied, it is also blacklisted until its natural expiry so logout
+   * immediately prevents HTTP and Socket.IO reuse.
+   */
+  async logout(refreshToken: string, accessToken?: string): Promise<void> {
+    await this.redis.del(this.refreshKey(refreshToken));
+
+    if (!accessToken) {
+      return;
+    }
+
+    try {
+      const payload = this.verifyAccessToken(accessToken);
+      const remainingSeconds = Math.max(
+        1,
+        Math.floor((payload.exp ?? Date.now() / 1000) - Date.now() / 1000),
+      );
+      await this.redis.set(
+        this.accessRevocationKey(accessToken),
+        '1',
+        remainingSeconds,
+      );
+    } catch {
+      // An already-expired or malformed access token cannot authorize work,
+      // so there is nothing left to revoke. The refresh token is still gone.
+    }
+  }
+
+  /** Whether an access token was explicitly revoked by logout. */
+  async isAccessTokenRevoked(token: string): Promise<boolean> {
+    return Boolean(await this.redis.get(this.accessRevocationKey(token)));
   }
 
   /** Verify an access token and return its payload (throws on invalid/expired). */
@@ -124,7 +161,11 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Invalid or expired access token');
     }
-    return { sub: decoded.sub, username: decoded.username };
+    return {
+      sub: decoded.sub,
+      username: decoded.username,
+      exp: typeof decoded.exp === 'number' ? decoded.exp : undefined,
+    };
   }
 
   private async issueTokens(
@@ -154,5 +195,11 @@ export class AuthService {
 
   private refreshKey(token: string): string {
     return `auth:refresh:${token}`;
+  }
+
+  /** Hash access tokens before using them as Redis keys. */
+  private accessRevocationKey(token: string): string {
+    const digest = crypto.createHash('sha256').update(token).digest('hex');
+    return `auth:revoked:${digest}`;
   }
 }

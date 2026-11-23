@@ -90,7 +90,10 @@ describe('AuthController (integration)', () => {
         .expect(409);
 
       expect(res.body.statusCode).toBe(409);
-      expect(res.body.code).toBe('CHAMPION_UNAVAILABLE');
+      expect(res.body.code).toBe('CONFLICT');
+      expect(res.body.message).toBe(
+        'Username or email is already registered',
+      );
     });
 
     it('rejects a duplicate email with 409', async () => {

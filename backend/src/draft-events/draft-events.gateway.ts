@@ -46,6 +46,7 @@ import { PublicJoinDto } from './dto/public-join.dto';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { DraftSessionState } from './draft-session.service';
 import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
+import { SOCKET_CORS_OPTIONS } from '../common/config/cors';
 
 /**
  * Real-time draft gateway (T-006).
@@ -72,11 +73,8 @@ import { WsValidationExceptionFilter } from './ws-validation-exception.filter';
  * messages from DTO errors).
  */
 @WebSocketGateway({
-  cors: {
-    // Same local-only policy as the HTTP API in main.ts.
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-    credentials: true,
-  },
+  // Same local-only policy as the HTTP API in main.ts.
+  cors: SOCKET_CORS_OPTIONS,
 })
 @UsePipes(
   new ValidationPipe({
@@ -152,19 +150,21 @@ export class DraftEventsGateway
    * can only join read-only rooms via `public.join`. A malformed or expired
    * token is still rejected so a broken session fails loudly.
    */
-  handleConnection(client: Socket): void {
+  async handleConnection(client: Socket): Promise<void> {
     try {
-      const user = this.wsJwtGuard.authenticate(client);
+      const user = await this.wsJwtGuard.authenticate(client);
       client.data.user = user;
       this.health.register(client.id, user);
       void client.join(userRoom(user.id));
+      client.emit('connection.ready', { authenticated: true });
       this.logger.log(
-        `connect user=${user.username} socket=${client.id} total=${this.health.stats().totalConnections}`,
+        `connect user=${user.id} total=${this.health.stats().totalConnections}`,
       );
     } catch (err) {
       if (!this.hasHandshakeToken(client)) {
         // Anonymous spectator connection (T-015): no user room, no presence.
-        this.logger.log(`connect spectator socket=${client.id}`);
+        client.emit('connection.ready', { authenticated: false });
+        this.logger.log('connect spectator');
         return;
       }
       const message =
@@ -178,7 +178,7 @@ export class DraftEventsGateway
     const removed = this.health.unregister(client.id);
     if (removed) {
       this.logger.log(
-        `disconnect user=${removed.user.username} socket=${client.id} total=${this.health.stats().totalConnections}`,
+        `disconnect user=${removed.user.id} total=${this.health.stats().totalConnections}`,
       );
     }
 
@@ -247,7 +247,7 @@ export class DraftEventsGateway
     this.broadcast(draft.id, 'draft.update', session);
 
     this.logger.log(
-      `draft.join user=${user.username} draft=${draft.id} team=${team}`,
+      `draft.join user=${user.id} draft=${draft.id} team=${team}`,
     );
     return { ok: true, draftId: draft.id, team, room: draftRoom(draft.id) };
   }
@@ -361,9 +361,7 @@ export class DraftEventsGateway
       client.emit('draft.completed', await this.completedPayload(draft.id));
     }
 
-    this.logger.log(
-      `public.join code=${draft.code} draft=${draft.id} socket=${client.id}`,
-    );
+    this.logger.log(`public.join draft=${draft.id}`);
     return {
       ok: true,
       draftId: draft.id,
@@ -451,7 +449,7 @@ export class DraftEventsGateway
       this.broadcast(draftId, 'draft.update', state);
 
       this.logger.log(
-        `ban.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
+        `ban.lock draft=${draftId} team=${team} turn=${state.currentTurn}`,
       );
       // Stop the countdown and announce the next turn (turn.end/turn.start).
       await this.turnManager.handleActionCompleted(draftId);
@@ -557,7 +555,7 @@ export class DraftEventsGateway
       this.broadcast(draftId, 'draft.update', state);
 
       this.logger.log(
-        `pick.lock draft=${draftId} team=${team} champion=${championId} turn=${state.currentTurn}`,
+        `pick.lock draft=${draftId} team=${team} turn=${state.currentTurn}`,
       );
       // Stop the countdown and announce the next turn (turn.end/turn.start).
       await this.turnManager.handleActionCompleted(draftId);

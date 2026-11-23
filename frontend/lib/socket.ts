@@ -150,6 +150,7 @@ export interface ServerToClientEvents {
   'draft.completed': (payload: DraftCompletedPayload) => void;
   'draft.expired': (payload: DraftExpiredPayload) => void;
   'auth.error': (payload: { message: string }) => void;
+  'connection.ready': (payload: { authenticated: boolean }) => void;
   exception: (payload: ExceptionPayload) => void;
 }
 

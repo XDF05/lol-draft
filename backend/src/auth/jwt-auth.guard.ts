@@ -24,6 +24,9 @@ export class JwtAuthGuard implements CanActivate {
 
     const token = header.slice('Bearer '.length).trim();
     const payload = this.authService.verifyAccessToken(token);
+    if (await this.authService.isAccessTokenRevoked(token)) {
+      throw new UnauthorizedException('Access token has been revoked');
+    }
 
     request.user = { id: payload.sub, username: payload.username };
     return true;

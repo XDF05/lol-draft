@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 /**
  * Payload for the `public.join` event (T-015 spectator entry point).
@@ -9,5 +9,6 @@ import { IsNotEmpty, IsString } from 'class-validator';
 export class PublicJoinDto {
   @IsString()
   @IsNotEmpty()
+  @MaxLength(32)
   draftCode!: string;
 }

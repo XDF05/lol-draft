@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
+  HttpCode,
   Post,
   Req,
   UseGuards,
@@ -38,6 +40,23 @@ export class AuthController {
   @Post('refresh')
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto);
+  }
+
+  /**
+   * Revoke the current browser session. The refresh token is always
+   * invalidated; the bearer token, when present, is blacklisted until its
+   * natural expiry.
+   */
+  @Post('logout')
+  @HttpCode(204)
+  logout(
+    @Body() dto: RefreshTokenDto,
+    @Headers('authorization') authorization?: string,
+  ): Promise<void> {
+    const accessToken = authorization?.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length).trim()
+      : undefined;
+    return this.authService.logout(dto.refresh_token, accessToken);
   }
 
   @Get('me')

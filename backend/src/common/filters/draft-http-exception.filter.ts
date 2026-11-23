@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { redactRequestPath } from '../security/redact';
 
 /**
  * Global HTTP exception filter for draft-specific errors.
@@ -33,58 +34,71 @@ export class DraftHttpExceptionFilter
 
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
+    const safePath = redactRequestPath(request.url);
 
     let code: string;
     let message: string;
 
     if (
       typeof exceptionResponse === 'object' &&
-      exceptionResponse !== null &&
-      'code' in exceptionResponse
+      exceptionResponse !== null
     ) {
       const body = exceptionResponse as {
         code?: string;
-        message?: string;
+        message?: string | string[];
       };
       code = body.code ?? this.defaultCode(status);
-      message =
-        typeof body.message === 'string'
-          ? body.message
-          : exception.message;
+      if (Array.isArray(body.message)) {
+        message = body.message.join('; ');
+      } else {
+        message = body.message ?? exception.message;
+      }
     } else {
       code = this.defaultCode(status);
       message =
         typeof exceptionResponse === 'string'
           ? exceptionResponse
-          : 'A system error occurred';
+          : this.defaultMessage(status);
     }
 
-    this.logger.error(
-      `${request.method} ${request.url} -> ${code}: ${message}`,
-      exception.stack,
-    );
+    const logLine = `${request.method} ${safePath} -> ${code}: ${message}`;
+    if (status >= 500) {
+      this.logger.error(logLine, exception.stack);
+    } else {
+      // Expected client errors do not need stack traces, and a stack can
+      // contain implementation details that should not reach normal logs.
+      this.logger.warn(logLine);
+    }
 
     response.status(status).json({
       statusCode: status,
       code,
       message,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: safePath,
     });
   }
 
   private defaultCode(status: number): string {
     switch (status) {
-      case HttpStatus.NOT_FOUND:
-        return 'DRAFT_NOT_FOUND';
-      case HttpStatus.FORBIDDEN:
-        return 'UNAUTHORIZED';
-      case HttpStatus.CONFLICT:
-        return 'CHAMPION_UNAVAILABLE';
       case HttpStatus.BAD_REQUEST:
-        return 'INVALID_TURN';
+        return 'VALIDATION_ERROR';
+      case HttpStatus.UNAUTHORIZED:
+        return 'UNAUTHORIZED';
+      case HttpStatus.FORBIDDEN:
+        return 'FORBIDDEN';
+      case HttpStatus.NOT_FOUND:
+        return 'NOT_FOUND';
+      case HttpStatus.CONFLICT:
+        return 'CONFLICT';
+      case HttpStatus.TOO_MANY_REQUESTS:
+        return 'RATE_LIMITED';
       default:
-        return 'INTERNAL_ERROR';
+        return status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_ERROR';
     }
+  }
+
+  private defaultMessage(status: number): string {
+    return status >= 500 ? 'Internal server error' : 'Request failed';
   }
 }

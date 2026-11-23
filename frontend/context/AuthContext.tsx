@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import api, { authStorage, configureAuthApi, type AuthTokens } from '../lib/api';
+import { closeDraftSocket } from '../lib/socket';
 
 export interface AuthUser {
   id: number;
@@ -28,7 +29,7 @@ export interface AuthContextValue {
   status: AuthStatus;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<AuthUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 /**
@@ -93,10 +94,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return me.data;
   }, []);
 
-  const logout = useCallback(() => {
-    authStorage.clear();
-    setUser(null);
-    setStatus('unauthenticated');
+  const logout = useCallback(async () => {
+    const refreshToken = authStorage.getRefreshToken();
+    try {
+      if (refreshToken) {
+        // Revoke the server-side refresh token and the current access token.
+        await api.post('/auth/logout', { refresh_token: refreshToken });
+      }
+    } finally {
+      // Local state is cleared even if the API is temporarily unavailable.
+      closeDraftSocket();
+      authStorage.clear();
+      setUser(null);
+      setStatus('unauthenticated');
+    }
   }, []);
 
   const value = useMemo<AuthContextValue>(

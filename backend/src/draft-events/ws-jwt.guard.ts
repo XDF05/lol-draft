@@ -26,7 +26,7 @@ export class WsJwtGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
   /** Validate a socket's credentials; throws UnauthorizedException on failure. */
-  authenticate(client: Socket): SocketUser {
+  async authenticate(client: Socket): Promise<SocketUser> {
     const token =
       (client.handshake.auth?.token as string | undefined)?.trim() ??
       bearerFrom(client.handshake.headers?.authorization);
@@ -36,12 +36,15 @@ export class WsJwtGuard implements CanActivate {
     }
 
     const payload = this.authService.verifyAccessToken(token);
+    if (await this.authService.isAccessTokenRevoked(token)) {
+      throw new UnauthorizedException('Access token has been revoked');
+    }
     return { id: payload.sub, username: payload.username };
   }
 
-  canActivate(context: ExecutionContext): boolean {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const client = context.switchToWs().getClient<Socket>();
-    const user = this.authenticate(client);
+    const user = await this.authenticate(client);
     client.data.user = user;
     return true;
   }

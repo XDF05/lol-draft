@@ -56,6 +56,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     return this.client.del(key);
   }
 
+  /**
+   * Atomically read and delete a key.
+   *
+   * Used for single-use refresh-token rotation: two concurrent refresh
+   * requests cannot both observe the same token before it is invalidated.
+   */
+  async getDel(key: string): Promise<string | null> {
+    return this.client.getdel(key);
+  }
+
   /** INCR a counter and set its TTL on first hit. Returns the new count. */
   async incrementWithTtl(key: string, ttlSeconds: number): Promise<number> {
     const count = await this.client.incr(key);

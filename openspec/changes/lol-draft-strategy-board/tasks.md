@@ -81,13 +81,13 @@ The checklist below reconciles the original implementation breakdown with the be
 
 ## 9. Security hardening
 
-- [ ] 9.1 Audit backend and frontend dependencies and remediate actionable findings, and verify `npm audit` output is reviewed for both packages
-- [ ] 9.2 Test the local-origin CORS policy and public endpoint boundary, and verify disallowed browser origins cannot read participant API responses
-- [ ] 9.3 Exercise JWT expiration, refresh-token replay, login rate limits, and logout behavior, and verify each abuse case is rejected as specified
-- [ ] 9.4 Exercise input validation, SQL-injection attempts, and authentication-bypass paths across HTTP and Socket.IO routes, and verify malformed or unauthorized requests change no state
-- [ ] 9.5 Review logs and responses for passwords, tokens, and sensitive draft details, and verify no secret value is emitted
-- [ ] 9.6 Add automated security regression coverage for the verified cases, and verify the security test suite passes
-- [ ] 9.7 Document the local trust boundary, environment secrets, and deployment security assumptions, and verify the document matches the Compose and CORS configuration
+- [x] 9.1 Audit backend and frontend dependencies and remediate actionable findings, and verify `npm audit` output is reviewed for both packages
+- [x] 9.2 Test the local-origin CORS policy and public endpoint boundary, and verify disallowed browser origins cannot read participant API responses
+- [x] 9.3 Exercise JWT expiration, refresh-token replay, login rate limits, and logout behavior, and verify each abuse case is rejected as specified
+- [x] 9.4 Exercise input validation, SQL-injection attempts, and authentication-bypass paths across HTTP and Socket.IO routes, and verify malformed or unauthorized requests change no state
+- [x] 9.5 Review logs and responses for passwords, tokens, and sensitive draft details, and verify no secret value is emitted
+- [x] 9.6 Add automated security regression coverage for the verified cases, and verify the security test suite passes
+- [x] 9.7 Document the local trust boundary, environment secrets, and deployment security assumptions, and verify the document matches the Compose and CORS configuration
 
 ## 10. Container hardening
 

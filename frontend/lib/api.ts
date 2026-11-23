@@ -82,7 +82,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh'];
+const AUTH_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+];
 
 function isAuthEndpoint(url: string | undefined): boolean {
   return AUTH_ENDPOINTS.some((path) => (url ?? '').includes(path));

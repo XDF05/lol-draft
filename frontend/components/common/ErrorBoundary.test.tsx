@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ErrorBoundary } from './ErrorBoundary';
 
-function Boom({ message = 'Kaboom' }: { message?: string }) {
+function Boom({ message = 'Kaboom' }: { message?: string }): React.ReactNode {
   throw new Error(message);
 }
 

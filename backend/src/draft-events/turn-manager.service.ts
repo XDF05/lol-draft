@@ -325,7 +325,7 @@ export class TurnManagerService implements OnModuleDestroy {
           fallbackId,
         );
         this.logger.log(
-          `auto.pick draft=${draftId} team=${team} champion=${fallbackId} turn=${turn.turnNumber}`,
+          `auto.pick draft=${draftId} team=${team} turn=${turn.turnNumber}`,
         );
       } else {
         const state = await this.sessions.recordSkip(draftId, team);
@@ -388,7 +388,7 @@ export class TurnManagerService implements OnModuleDestroy {
     this.emitTo(draftId, 'ban.confirmed', payload);
     this.emitTo(draftId, 'draft.update', state);
     this.logger.log(
-      `auto.lock draft=${draftId} team=${team} champion=${championId} turn=${turnNumber}`,
+      `auto.lock draft=${draftId} team=${team} turn=${turnNumber}`,
     );
     return championId;
   }
@@ -426,7 +426,7 @@ export class TurnManagerService implements OnModuleDestroy {
     this.emitTo(draftId, 'pick.confirmed', payload);
     this.emitTo(draftId, 'draft.update', state);
     this.logger.log(
-      `auto.lock draft=${draftId} team=${team} champion=${confirmed} turn=${turnNumber}`,
+      `auto.lock draft=${draftId} team=${team} turn=${turnNumber}`,
     );
     return confirmed;
   }

@@ -33,11 +33,12 @@ describe('useMediaQuery / useIsMobile (responsive behavior)', () => {
 
   it('updates when the match state changes', () => {
     const mql = window.matchMedia as jest.Mock;
+    let changeHandler: ((event: MediaQueryListEvent) => void) | undefined;
     mql.mockImplementation(() => ({
       matches: false,
       media: '(max-width: 639px)',
-      addEventListener: jest.fn((_type: string, handler: any) => {
-        mql._handler = handler;
+      addEventListener: jest.fn((_type: string, handler: (event: MediaQueryListEvent) => void) => {
+        changeHandler = handler;
       }),
       removeEventListener: jest.fn(),
       dispatchEvent: jest.fn(),
@@ -47,7 +48,7 @@ describe('useMediaQuery / useIsMobile (responsive behavior)', () => {
     expect(result.current).toBe(false);
 
     act(() => {
-      mql._handler({ matches: true } as MediaQueryListEvent);
+      changeHandler?.({ matches: true } as MediaQueryListEvent);
     });
     expect(result.current).toBe(true);
   });
