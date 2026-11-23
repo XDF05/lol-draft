@@ -25,7 +25,8 @@ const mockRedis = {
   del: jest.fn(),
 };
 
-const JWT_SECRET = 'test-secret-do-not-use-in-production';
+const JWT_SECRET =
+  process.env.JWT_SECRET ?? 'test-secret-do-not-use-in-production';
 
 function moduleWithOverrides(env: Record<string, string | undefined>) {
   const originalEnv = { ...process.env };

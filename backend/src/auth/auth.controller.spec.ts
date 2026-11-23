@@ -8,7 +8,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisService } from '../redis/redis.service';
 
-const JWT_SECRET = 'test-secret-do-not-use-in-production';
+const JWT_SECRET =
+  process.env.JWT_SECRET ?? 'test-secret-do-not-use-in-production';
 let userCounter = 0;
 
 function uniqueUsername(prefix = 'user') {
