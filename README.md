@@ -110,6 +110,7 @@ openspec/    Planning artifacts: proposal, design, specs, tasks
 
 The single-draft feature set is implemented and covered by backend
 integration/unit tests, frontend component/accessibility tests, an end-to-end
-Compose draft test, and a security regression suite. OpenSpec tracks the
-remaining verification and documentation work in
-`openspec/changes/lol-draft-strategy-board/`.
+Compose draft test, and a security regression suite. The completed OpenSpec
+planning artifacts are archived in
+`openspec/changes/archive/2026-11-23-lol-draft-strategy-board/`, and the main
+behavior specification is in `openspec/specs/draft-system/spec.md`.
